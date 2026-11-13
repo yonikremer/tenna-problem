@@ -83,6 +83,25 @@ A single module runs on its own as well:
 .venv/Scripts/python.exe -m analysis.chip_extraction gnss_observation.nc
 ```
 
+## Where it works and where it breaks
+
+`python benchmark.py` synthesises recordings across one axis at a time — C/N0, number of flipped
+chips, PRN count, record length, shift per PRN, fractional code phase, a data bit flipping mid-record,
+and the no-shared-rule cases — and scores every run against truth. Full tables: [`BENCHMARK.md`](BENCHMARK.md).
+
+| axis | result with 12 PRNs at 55 dB-Hz |
+| --- | --- |
+| C/N0 per PRN | exact down to **47 dB-Hz**; at 45 dB-Hz 73-80% of the flips come back |
+| flipped chips per PRN | exact for **3 to 40** of 1023 (4%) |
+| PRNs at 52 dB-Hz | exact from **6** PRNs; 2 or 4 PRNs leave 7-13% of the flips missing |
+| record length | **4 ms and longer** exact; 2 ms loses 13-40% of the flips |
+| shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |
+| fractional code phase | flips exact at 0.25/0.5/0.75 sample offsets; residual power rises to 1.14x noise |
+| data bit flipping mid-record | exact; worst Doppler error 3.7 Hz |
+| no shared rule / no modification | reports **0 chips at 0.000 dB** — no rule invented |
+
+The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin.
+
 ## Third-party code, stated plainly
 
 The C/A spreading codes come from someone else's code, not mine.

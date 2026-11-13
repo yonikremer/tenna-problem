@@ -98,7 +98,9 @@ def soft_chip_vectors(acquisition) -> tuple:
     for prn, detection in acquisition.detected.items():
         shift = alignment.aligned_shift(samples, prn, lattice, detection.doppler_hz)
         shifts[prn] = shift
-        units[prn] = signals.unit_signal(length, prn, lattice, detection.doppler_hz, shift)
+        units[prn] = signals.unit_signal(
+            length, prn, lattice, detection.doppler_hz, shift, detection.bit_change_period
+        )
         coefficients[prn] = np.vdot(units[prn], samples) / length
 
     residual = signals.residual(samples, coefficients, units)

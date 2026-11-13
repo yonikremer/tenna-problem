@@ -50,18 +50,28 @@ def first_10_chips(satellite: int) -> int:
     return ca.first_10_chips(satellite)
 
 
+def bit_sign_mask(length: int, lattice: Lattice, bit_change_period: int | None) -> np.ndarray:
+    """Samples worth of +-1 for a navigation data bit that changes inside the record."""
+    if bit_change_period is None:
+        return np.ones(length)
+    mask = np.ones(length)
+    mask[int(bit_change_period) * lattice.samples_per_code_period :] = -1.0
+    return mask
+
+
 def unit_signal(
     length: int,
     satellite: int,
     lattice: Lattice,
     doppler_hz: float,
     shift_samples: float,
+    bit_change_period: int | None = None,
 ) -> np.ndarray:
-    """Received-signal shape of one satellite: aligned spreading code times its carrier."""
+    """Received-signal shape of one satellite: aligned spreading code times carrier times data bit."""
     replica = spreading_code_replica(
         satellite, length, lattice, None, -shift_samples * lattice.code_phase_increment
     )
-    return replica * carrier(length, lattice, doppler_hz)
+    return replica * carrier(length, lattice, doppler_hz) * bit_sign_mask(length, lattice, bit_change_period)
 
 
 def aligned_code(
@@ -80,6 +90,7 @@ def flipped_replica(
     lattice: Lattice,
     shift_samples: float,
     flipped_chips=frozenset(),
+    bit_change_period: int | None = None,
 ) -> np.ndarray:
     """Nominal spreading code with the given chips negated, sampled at the record grid.
 
@@ -92,7 +103,8 @@ def flipped_replica(
     if flipped_chips:
         code = code.copy()
         code[list(flipped_chips)] *= -1.0
-    return aligned_code(code, shift_samples, length, lattice.samples_per_chip_whole)
+    replica = aligned_code(code, shift_samples, length, lattice.samples_per_chip_whole)
+    return replica * bit_sign_mask(length, lattice, bit_change_period)
 
 
 def fit_amplitudes(samples: np.ndarray, units: dict) -> dict:

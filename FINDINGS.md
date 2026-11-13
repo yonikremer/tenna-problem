@@ -311,6 +311,20 @@ Single-satellite chip repair is not reliable at 55 dB-Hz. The common rule is wha
 6. **`tests/make_synthetic.py` — self-check counted non-zero index values, not indices.**
    A flip at chip 0 made the check fail. Fix: compare `len(changed)`.
 
+7. **`gnss/acquisition.py` — the Doppler fit ignored a navigation data bit changing mid-record.**
+   Root cause: the phase of one prompt per code period was fitted with a single straight line. A
+   data bit lasts 20 ms and the record is 8 ms, so at most one change fits, and it inverts the prompt
+   sign from that period on. The fit averaged both halves and returned a frequency 95 Hz wrong for a
+   true -2311 Hz, while reporting +-1.4 Hz: confidently wrong, the worst failure mode. The 180-degree
+   step is also indistinguishable from a frequency offset of about one over twice the half-record, so
+   a residual test alone picks the wrong branch. Fix: `gnss/alignment.py` chooses the per-period sign
+   pattern whose de-rotated prompts add up to the largest coherent sum — the matched-filter criterion,
+   with the all-positive pattern always a candidate — and the sign step is removed before the fit, the
+   correlation and the chip average. Also fixed: the acceptance gate rejected the corrected frequency
+   because it was far from the grid value (`|diff| <= 0.5 * fine_step`), silently reverting to the
+   wrong one. Evidence: `benchmark.py`, data-bit sweep, worst Doppler error 100.2 Hz -> 2.85 Hz, chip
+   amplitude 0.19 -> 0.30, and verification residual 1.914 -> 0.997 of the true noise power.
+
 ## Tests and coverage
 
 ```bash
@@ -328,6 +342,29 @@ Required minimum 90% (pytest.ini)
 Every module of `gnss/` is exercised end to end by `tests/test_pipeline.py` on the 55 dB-Hz
 synthetic recording, and unit by unit by the rest. The `analysis/` scripts keep their own tests but
 are not part of the coverage requirement: they are evidence, not the shipped path.
+
+## Benchmark: where the method stops working
+
+`benchmark.py` synthesises recordings from the same signal model with the truth known, runs the whole
+chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
+
+| axis | result (baseline: 12 PRNs, 55 dB-Hz, 15 chips, 8 ms) |
+| --- | --- |
+| C/N0 per PRN | exact down to 47 dB-Hz; at 45 dB-Hz recall falls to 0.73-0.80 |
+| flipped chips per PRN | exact for 3 to 40; no count tested fails |
+| PRNs at 52 dB-Hz | exact from 6 PRNs; 2 and 4 PRN cases lose 7-13% of the chips |
+| record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
+| shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
+| fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
+| data bit flipping mid-record | exact; worst Doppler error 3.7 Hz (100 Hz before the fix below) |
+| independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
+
+Two of these are worth reading as physics rather than as bugs. Sensitivity stops where the per-chip
+signal-to-noise stops supporting a sign decision even after the 12-fold combining gain. The 2 ms
+record fails because the coherent average has only two periods to work with and the Doppler fit only
+two points of phase slope. The half-sample residual is the model's rectangular, integer-sample chip
+shape: a real waveform offset by half a sample cannot be cancelled exactly by it, and only the
+residual-power check notices, because the chip signs are still read correctly.
 
 ## Known uncertainties
 
@@ -348,8 +385,6 @@ are not part of the coverage requirement: they are evidence, not the shipped pat
 
 ## Where the code lives
 
-| path | role |
-| --- | --- |
 | path | role |
 | --- | --- |
 | `solve.py` | end-to-end entry point: acquisition, rule recovery, Fibonacci check, evidence |
@@ -375,4 +410,3 @@ are not part of the coverage requirement: they are evidence, not the shipped pat
 | `tests/chip_fixing.py` | iterative chip repair |
 | `tests/test_*.py` | the test suite |
 | `tests/README.md` | detailed test notes and tables |
-```

@@ -41,7 +41,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import signals
+from . import alignment, signals
 from .lattice import Lattice, load_recording
 from .signals import carrier, spreading_code_replica, unit_signal
 from .tables import write_acquisition
@@ -77,6 +77,8 @@ class Detection:
     peak_to_floor_ratio: float
     carrier_to_noise_density_dbhz: float | None
     detected: bool
+    # index of the code period where the navigation data bit changes inside this record, if any
+    bit_change_period: int | None = None
 
     def as_row(self) -> dict:
         return {
@@ -267,6 +269,10 @@ def sharp_doppler(
     term is what catches multi-access interference: the other satellites' codes and this code's
     own modified chips are correlated with the replica for the whole record, so they do not average
     away like thermal noise and can dominate the phase wobble.
+
+    A navigation data bit that changes inside the record inverts the prompt sign from that period
+    onwards. The straight-line fit would average the two halves and return a frequency tens of hertz
+    wrong while still claiming a sub-hertz uncertainty, so the sign step is removed first.
     """
     prompts = period_prompts(samples, satellite, lattice, doppler_hz, shift_samples)
     periods = len(prompts)
@@ -279,8 +285,11 @@ def sharp_doppler(
     weights = np.abs(prompts) ** 2
     total_weight = float(weights.sum())
     centred = times - float(np.sum(weights * times) / total_weight)
-    slope = float(np.sum(weights * centred * phases) / np.sum(weights * centred * centred))
-    intercept = float(np.sum(weights * phases) / total_weight)
+
+    boundary = alignment.data_bit_sign_pattern(prompts, lattice.code_period_seconds)
+    bit_change = bool(np.any(boundary < 0))
+    phases = np.unwrap(np.angle(prompts * boundary))
+    slope, intercept, weighted_residual = alignment.weighted_line(centred, phases, weights)
     refined = float(doppler_hz + slope / (2.0 * np.pi))
 
     # thermal bound: prompt magnitude is a sum over one code period, so normalise per sample
@@ -291,9 +300,8 @@ def sharp_doppler(
     thermal_uncertainty = phase_noise * slope_noise / (2.0 * np.pi)
 
     # measured scatter: catches interference that the thermal model does not describe
-    residual = phases - (intercept + slope * centred)
-    degrees_of_freedom = periods - 2
-    scatter = float(np.sum(weights * residual**2) / total_weight * periods / degrees_of_freedom)
+    degrees_of_freedom = max(periods - 2 - int(bit_change), 1)
+    scatter = weighted_residual * periods / degrees_of_freedom
     empirical_uncertainty = float(np.sqrt(scatter / np.sum(weights * centred * centred)) / (2.0 * np.pi))
     return refined, max(thermal_uncertainty, empirical_uncertainty)
 
@@ -429,6 +437,26 @@ def acquire(
     detections = []
     for item in found:
         measurement = without_others.get(item["satellite"], samples)
+        bit_signs = alignment.data_bit_sign_pattern(
+            period_prompts(
+                measurement,
+                item["satellite"],
+                lattice,
+                item["doppler_hz"],
+                item["shift_samples"],
+            ),
+            lattice.code_period_seconds,
+        )
+        bit_change_period = (
+            int(np.argmax(bit_signs < 0)) if np.any(bit_signs < 0) else None
+        )
+        if bit_change_period is not None:
+            # Remove the navigation data bit's sign change from the measurement before correlating.
+            # Without that, half the record adds with the wrong sign, and a correlation peak cannot
+            # tell the bit flip from a frequency offset of about 1/(2*half-record).
+            measurement = measurement.copy() * np.repeat(
+                bit_signs, lattice.samples_per_code_period
+            )
         sharpened, uncertainty = sharp_doppler(
             measurement,
             item["satellite"],
@@ -445,7 +473,17 @@ def acquire(
             measurement, item["satellite"], lattice, sharpened
         )
         if item["satellite"] in without_others:
-            accepted = abs(sharpened - item["doppler_hz"]) <= 0.5 * fine_step_hz
+            # Consistency with the grid is the default test, with the fit's own uncertainty as the
+            # allowance. A large but well-supported correction is settled by the criterion that
+            # matters: does the corrected frequency correlate better?
+            accepted = abs(sharpened - item["doppler_hz"]) <= max(
+                0.5 * fine_step_hz, 3.0 * uncertainty
+            )
+            if not accepted:
+                grid_peak = coherent_correlation(
+                    measurement, item["satellite"], lattice, item["doppler_hz"]
+                )[0]
+                accepted = peak >= grid_peak
         else:
             accepted = peak >= item["peak"]
         if not accepted:
@@ -467,6 +505,7 @@ def acquire(
                     float(10 * np.log10(signal_to_noise / duration_s)) if is_detected else None
                 ),
                 detected=is_detected,
+                bit_change_period=bit_change_period,
             )
         )
 

@@ -13,6 +13,7 @@ Two readings are produced on purpose:
 
 import numpy as np
 
+from . import alignment
 from .lattice import Lattice
 from .signals import spreading_code_replica
 
@@ -31,6 +32,10 @@ def chip_vector(
     The chip index of a sample follows from the measured code phase, so it is already the code
     coordinate: no relabelling roll is needed, and a delay that is not a whole number of chips is
     handled by sampling each chip's midpoint.
+
+    A navigation data bit that changes inside the record inverts the sign of the later periods, and
+    averaging straight across that boundary cancels much of the signal. The boundary is detected from
+    the per-period sums and removed before the average.
     """
     period_samples = lattice.samples_per_code_period if period_samples is None else period_samples
     samples_per_chip = lattice.samples_per_chip_whole if samples_per_chip is None else samples_per_chip
@@ -43,6 +48,9 @@ def chip_vector(
     times = np.arange(length) / lattice.sample_rate_hz
     product = (samples * np.exp(-2j * np.pi * doppler_hz * times) * replica)[:usable]
     blocks = product.reshape(periods, period_samples)
+    bit_signs = alignment.data_bit_sign_pattern(blocks.sum(axis=1), lattice.code_period_seconds)
+    if np.any(bit_signs < 0):
+        blocks = blocks.copy() * bit_signs[:, None]
 
     slots = np.arange(lattice.code_length_in_chips)[:, None] * samples_per_chip + np.arange(
         samples_per_chip

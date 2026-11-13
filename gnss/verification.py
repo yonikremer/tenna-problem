@@ -77,11 +77,14 @@ def unit_signals(
     units = {}
     for prn, detection in acquisition.detected.items():
         shift = alignment.aligned_shift(samples, prn, lattice, detection.doppler_hz)
+        bit_period = getattr(detection, "bit_change_period", None)
         if nominal:
-            units[prn] = signals.unit_signal(length, prn, lattice, detection.doppler_hz, shift)
+            units[prn] = signals.unit_signal(
+                length, prn, lattice, detection.doppler_hz, shift, bit_period
+            )
         else:
             units[prn] = signals.flipped_replica(
-                prn, length, lattice, shift, frozenset(flips.get(prn, ()))
+                prn, length, lattice, shift, frozenset(flips.get(prn, ())), bit_period
             ) * signals.carrier(length, lattice, detection.doppler_hz)
     return units
 

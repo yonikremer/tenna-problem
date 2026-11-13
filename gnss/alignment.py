@@ -93,10 +93,65 @@ def aligned_shift(
     return refine_alignment(samples, satellite, lattice, doppler_hz, coarse)
 
 
+# A navigation data bit lasts 20 ms, so at most one change falls inside a short record, and it must
+# sit on a code-period boundary. Accept such a change only when it explains the prompt phase far
+# better than a straight line: a real change collapses the residual, noise does not.
+BIT_CHANGE_RESIDUAL_RATIO = 0.25
+
+
+def weighted_line(centred: np.ndarray, values: np.ndarray, weights: np.ndarray):
+    """Weighted straight-line fit of `values` against `centred`; slope, intercept, residual power."""
+    total = float(weights.sum())
+    denominator = float(np.sum(weights * centred * centred))
+    slope = float(np.sum(weights * centred * values) / denominator)
+    intercept = float(np.sum(weights * values) / total)
+    residual = values - (intercept + slope * centred)
+    return slope, intercept, float(np.sum(weights * residual**2) / total)
+
+
+def data_bit_sign_pattern(prompts: np.ndarray, code_period_seconds: float) -> np.ndarray:
+    """Per-period +-1 navigation data bit signs, from at most one sign change.
+
+    A navigation data bit lasts 20 ms, so a short record holds at most one change and it must sit on
+    a code-period boundary: from that period on, the prompt sign is inverted. That inversion is not
+    separable from a frequency offset of about one over twice the half-record, so the choice is made
+    the way a receiver makes it - take the sign pattern whose de-rotated prompts add up to the
+    largest coherent sum. The all-positive pattern is always a candidate, so a record with a
+    constant bit keeps it.
+    """
+    periods = len(prompts)
+    ones = np.ones(periods)
+    if periods < 4:
+        return ones
+
+    times = np.arange(periods) * code_period_seconds
+    weights = np.abs(prompts) ** 2
+    centred = times - float(np.sum(weights * times) / float(weights.sum()))
+
+    def coherence(pattern):
+        corrected = prompts * pattern
+        phases = np.unwrap(np.angle(corrected))
+        slope, _, _ = weighted_line(centred, phases, weights)
+        de_rotated = corrected * np.exp(-1j * slope * times)
+        return float(abs(de_rotated.sum()))
+
+    best_pattern, best_coherence = ones, coherence(ones)
+    for boundary in range(1, periods):
+        for sign in (1.0, -1.0):
+            pattern = ones.copy()
+            pattern[boundary:] = sign
+            candidate = coherence(pattern)
+            if candidate > best_coherence:
+                best_pattern, best_coherence = pattern, candidate
+    return best_pattern
+
+
 __all__ = [
     "alignment_shift",
     "refine_alignment",
     "aligned_shift",
     "code_period_segments",
+    "data_bit_sign_pattern",
+    "weighted_line",
     "carrier",
 ]

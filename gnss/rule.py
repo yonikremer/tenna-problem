@@ -28,9 +28,11 @@ import numpy as np
 CODE_LENGTH = 1023
 FLIP_COUNT = 15
 
-# Candidate numbers of flipped chips. A solution with more than a few dozen flipped chips would no
-# longer be a sparse modification, and the held-out score would not recover it either.
-CANDIDATE_COUNTS = tuple(range(1, 41))
+# Candidate numbers of flipped chips, starting at zero: if no chip is flipped, or if nothing is
+# shared between the PRNs, the honest answer is a pattern of length zero. A solution with more than
+# a few dozen flipped chips would no longer be a sparse modification, and the held-out score would
+# not recover it either.
+CANDIDATE_COUNTS = tuple(range(0, 41))
 
 # The fourteen increments of the inferred generator, in chips.
 FIBONACCI = (1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377)
@@ -227,6 +229,9 @@ class Rule:
         """
         ordered = np.sort(self.consensus)
         scale = float(np.std(self.consensus)) or 1.0
+        if self.count == 0:
+            # no chip was accepted, so the boundary is the most negative chip of all
+            return float("nan"), float(ordered[0]) / scale
         weakest_accepted = float(ordered[self.count - 1]) / scale
         strongest_rejected = float(ordered[self.count]) / scale if self.count < len(ordered) else np.nan
         return weakest_accepted, strongest_rejected
