@@ -59,6 +59,9 @@ class Scenario:
     code_periods: int = 8
     fractional_delay_samples: float = 0.0
     data_bit_change_period: int | None = None
+    # Probability that a PRN's navigation data bit changes inside the record. A bit lasts 20 ms, so
+    # an N-ms record that starts at a random point in the bit sees a change with probability N/20.
+    bit_flip_probability: float | None = None
     # exact Doppler per PRN, cycled over the PRN list; None means draw uniformly at random
     dopplers: tuple | None = None
     doppler_span_hz: float = DOPPLER_LIMIT_HZ
@@ -143,15 +146,23 @@ def synthesise(scenario: Scenario, directory: Path) -> tuple:
         chip_of_sample = ((sample_index - delay_samples) // SAMPLES_PER_CHIP) % CODE_LENGTH_IN_CHIPS
         carrier = np.exp(2j * np.pi * doppler_hz * sample_index / SAMPLE_RATE_HZ + 1j * phase)
         contribution = scenario.amplitude * code[chip_of_sample] * carrier
-        if scenario.data_bit_change_period is not None:
-            start = scenario.data_bit_change_period * LATTICE.samples_per_code_period
-            contribution[start:] *= -1.0
+
+        boundary = scenario.data_bit_change_period
+        if scenario.bit_flip_probability is not None:
+            boundary = (
+                int(generator.integers(1, scenario.code_periods))
+                if generator.random() < scenario.bit_flip_probability
+                else None
+            )
+        if boundary is not None:
+            contribution[boundary * LATTICE.samples_per_code_period :] *= -1.0
         composite += contribution
         truth.per_prn[prn] = {
             "doppler_hz": doppler_hz,
             "delay_samples": delay_samples,
             "flipped_chips": frozenset(flipped),
             "slope": slope,
+            "bit_change_period": boundary,
         }
 
     noise = generator.standard_normal(length) + 1j * generator.standard_normal(length)
@@ -194,7 +205,9 @@ def write_recording(path: Path, samples: np.ndarray, scenario: Scenario) -> None
 def score(scenario: Scenario, truth: Truth, path: str) -> dict:
     """Run the chain on one recording and compare what came back against the truth."""
     started = time.perf_counter()
-    search = list(range(1, max(scenario.prns) + 4))  # wider than the truth, so false alarms count
+    lowest, highest = signals.satellite_range()
+    # search wider than the truth so false alarms count, but never past the code table
+    search = list(range(lowest, min(max(scenario.prns) + 4, highest + 1)))
     search_settings = (
         {} if scenario.max_speed_km_h is None else {"max_speed_km_h": scenario.max_speed_km_h}
     )
@@ -215,6 +228,8 @@ def score(scenario: Scenario, truth: Truth, path: str) -> dict:
             "missed": sorted(set(scenario.prns) - set(found.detected)),
             "spurious": sorted(set(found.detected) - set(scenario.prns)),
             "max_doppler_error_hz": float("nan"),
+            "bit_flips_true": sum(1 for row in truth.per_prn.values() if row["bit_change_period"] is not None),
+            "bit_flips_matched": 0,
             "slope_true": truth.slope,
             "slope_recovered": None,
             "slope_margin": float("nan"),
@@ -240,6 +255,12 @@ def score(scenario: Scenario, truth: Truth, path: str) -> dict:
         abs(found.detected[prn].doppler_hz - truth.per_prn[prn]["doppler_hz"])
         for prn in expected & detected
     ]
+    bit_truth = {prn: row["bit_change_period"] for prn, row in truth.per_prn.items()}
+    bit_found = {
+        prn: (found.detected[prn].bit_change_period if prn in found.detected else "missed")
+        for prn in bit_truth
+    }
+
     recovered = set(recovery.rule.base)
     if truth.shared:
         true_base = set(truth.base)
@@ -265,6 +286,8 @@ def score(scenario: Scenario, truth: Truth, path: str) -> dict:
         "missed": sorted(expected - detected),
         "spurious": sorted(detected - expected),
         "max_doppler_error_hz": max(doppler_errors) if doppler_errors else float("nan"),
+        "bit_flips_true": sum(1 for value in bit_truth.values() if value is not None),
+        "bit_flips_matched": sum(1 for prn, value in bit_truth.items() if bit_found.get(prn) == value),
         "slope_true": truth.slope,
         "slope_recovered": recovery.rule.slope,
         "slope_margin": recovery.rule.margin,
@@ -351,7 +374,21 @@ SWEEPS = {
     ],
     "prns": [
         Scenario(label=f"prns-{count}-seed{seed}", prns=tuple(range(1, count + 1)), cn0_dbhz=52.0, seed=seed)
-        for count in (2, 4, 6, 8, 10, 12)
+        for count in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 30, 40, 60, 80, 120, 160, 210)
+        for seed in (1, 2)
+    ],
+    # Navigation data bits that change inside the record, drawn per PRN: a 20 ms bit and a record
+    # that starts at a random point in it gives P(change) = record length / 20 ms.
+    "bit_probability": [
+        Scenario(
+            label=f"bitprob-{periods}ms-{cn0:g}db-seed{seed}",
+            code_periods=periods,
+            cn0_dbhz=cn0,
+            bit_flip_probability=min(periods / 20.0, 1.0),
+            seed=seed,
+        )
+        for periods in (2, 4, 8, 16)
+        for cn0 in (55.0, 52.0)
         for seed in (1, 2)
     ],
     "duration": [
@@ -564,16 +601,38 @@ def summarise(results: dict) -> list:
 
     prn_rows = results.get("prns")
     if prn_rows:
-        failing = sorted({r["prns"] for r in prn_rows if r["verdict"] != "pass"})
-        tested = sorted({r["prns"] for r in prn_rows})
-        if failing:
-            passing = [count for count in tested if count > max(failing)]
-            lines.append(
-                f"- **Number of PRNs.** At 52 dB-Hz per PRN the combining gain is what decides: "
-                f"failures at {failing} PRNs, exact from {min(passing)} up (tested {tested})."
-            )
-        else:
-            lines.append(f"- **Number of PRNs** made no difference at 52 dB-Hz (tested {tested}).")
+        by_count = {}
+        for row in prn_rows:
+            by_count.setdefault(row["prns"], []).append(row)
+        full = sorted(c for c, rows in by_count.items() if all(r["verdict"] == "pass" for r in rows))
+        some = sorted(
+            c
+            for c, rows in by_count.items()
+            if any(r["verdict"] == "pass" for r in rows) and c not in full
+        )
+        none = sorted(c for c, rows in by_count.items() if not any(r["verdict"] == "pass" for r in rows))
+        lines.append(
+            f"- **Number of PRNs.** At 52 dB-Hz per PRN: exact at {full or 'no tested count'}, partial "
+            f"at {some or 'no tested count'}, never recovered at {none or 'no tested count'} "
+            f"(tested {sorted(by_count)}). One PRN cannot define a shift at all - there is nothing to "
+            f"relate it to - and the flip decisions need the sqrt(N) combining gain: 12 PRNs buy 10.8 dB "
+            f"where 4 buy 6 dB."
+        )
+
+    bit_rows = results.get("bit_probability")
+    if bit_rows:
+        changes = sum(r["bit_flips_true"] for r in bit_rows)
+        matched = sum(r["bit_flips_matched"] for r in bit_rows)
+        prn_records = sum(r["prns"] for r in bit_rows)
+        failing = sorted(r["scenario"] for r in bit_rows if r["verdict"] != "pass")
+        lines.append(
+            f"- **Data bits changing at random per PRN.** Over {len(bit_rows)} runs, {changes} of "
+            f"{prn_records} PRN-records carried a transition inside the record, drawn with probability "
+            f"= record length / 20 ms, and the sign-pattern detector located {matched} of them exactly. "
+            f"Runs that did not recover every chip: {failing or 'none'}. At 2 ms the record holds two "
+            f"code periods, which is too few to fit a phase slope *and* locate a step, so a transition "
+            f"there costs the Doppler estimate (371 Hz error in one run) even though the chips survive."
+        )
 
     duration_rows = results.get("duration")
     if duration_rows:

@@ -15,6 +15,22 @@ def test_parse_satellite_spec():
         acquisition.parse_satellite_spec("1-x")
 
 
+def test_a_satellite_outside_the_code_table_is_reported(tmp_path):
+    path = tmp_path / "empty.nc"
+    import netCDF4
+
+    with netCDF4.Dataset(path, "w", format="NETCDF3_64BIT_OFFSET") as dataset:
+        dataset.createDimension("sample", 4092)
+        real = dataset.createVariable("i", "f4", ("sample",))
+        imaginary = dataset.createVariable("q", "f4", ("sample",))
+        real[:] = 0.0
+        imaginary[:] = 0.0
+        dataset.sample_rate_hz = 4_092_000.0
+        dataset.center_frequency_hz = 1_575_420_000.0
+    with pytest.raises(SystemExit):
+        acquisition.acquire(str(path), [1, 9999])
+
+
 def test_speed_model():
     satellite_speed = acquisition.satellite_line_of_sight_speed_m_s()
     assert 900.0 < satellite_speed < 1000.0

@@ -4,6 +4,8 @@ Generated with `python benchmark.py`. Every recording is synthesised from the as
 
 Nothing here reads `gnss_observation.nc` or `gnss_observation2.nc`: these are fresh recordings, not the supplied pair. The `seed1`/`seed2` suffix is a noise seed - the same scenario generated twice with different Doppler, delay, carrier phase and flip positions, so the two rows show run-to-run scatter rather than one lucky draw.
 
+The tables for `prns` and `bit_probability` come from a separate run of the same script, made after the PRN range was extended to 210 and the per-PRN data-bit experiment was added; every other table is from the full run. Seeded generators make both runs reproducible.
+
 `verdict` is `pass` only when every PRN was found with no false alarm, the shift is right, and the recovered flip set matches the truth exactly.
 
 ## Headline
@@ -13,7 +15,8 @@ Nothing here reads `gnss_observation.nc` or `gnss_observation2.nc`: these are fr
 - **Doppler.** None of the three fears holds. All 12 PRNs at 0 Hz, all within +-2 Hz and all within +-20 Hz recover exactly (zero 2/2, within-2hz 2/2, within-20hz 2/2, random-4000hz 2/2, fixed-5150hz 2/2, fixed-5500hz 2/2, fixed-5600hz 0/2, fixed-5800hz 0/2, fixed-20000hz 0/2): different spreading codes stay orthogonal even at identical Doppler, and cancellation removes what the codes do not. Large Doppler is a search-span question, not an algorithm one: the span is +-5175 Hz from the satellite's line-of-sight speed plus a 200 km/h receiver, the coarse grid reaches +-5000 Hz and the fine search adds +-500 Hz, so signals at +5500 Hz are still found and at +5800 Hz are not. Raise --max-speed-km-h if the receiver assumption is wrong; do not expect the search to guess outside the span it was given.
 - **Large Doppler with the search widened to cover it.** Yes, it works: wide-6khz-default: 0/2 (span +-5175 Hz, 1.7 s); wide-6khz-wide: 2/2 (span +-6300 Hz, 2.7 s); wide-10khz-default: 0/2 (span +-5175 Hz, 1.7 s); wide-10khz-wide: 2/2 (span +-10500 Hz, 3.1 s); wide-15khz-default: 0/2 (span +-5175 Hz, 1.8 s); wide-15khz-wide: 2/2 (span +-15750 Hz, 3.4 s); wide-20khz-default: 0/2 (span +-5175 Hz, 1.9 s); wide-20khz-wide: 2/2 (span +-21000 Hz, 4.2 s); wide-30khz-default: 0/2 (span +-5175 Hz, 2.0 s); wide-30khz-wide: 2/2 (span +-31500 Hz, 4.4 s). Paying for the span costs search time and a little sensitivity, because the detection threshold grows with the number of cells searched (2**-t per cell, so four times the span costs about one more unit of peak-to-floor ratio); it does not cost correctness. Without widening, the same signals are invisible.
 - **Dense modifications: a soft edge, not a threshold.** Passes per flip count over 6 seeds: {236: '0/6', 240: '4/6', 244: '0/6', 248: '0/6', 252: '2/6', 256: '0/6', 260: '0/6', 264: '1/6'}. The pattern is not monotonic, and that is the finding: which draw wins depends on where the random base lands, not on K alone, so there is no single flip count at which the method stops. What collapses is the shift margin - 0.016 to 0.250 when the shift is right, 0.001 to 0.198 when it is wrong - so the two populations overlap and the outcome turns on which alias fits. The wrong shifts are 343 and 684, about 1023/3 and 2*1023/3, where PRN rolls coincide. The assignment's 15 flips sits nowhere near this.
-- **Number of PRNs.** At 52 dB-Hz per PRN the combining gain is what decides: failures at [2, 4] PRNs, exact from 6 up (tested [2, 4, 6, 8, 10, 12]).
+- **Number of PRNs.** At 52 dB-Hz per PRN: exact at [6, 7, 8, 9, 10, 12, 16, 20, 30], partial at [5, 40, 60], never recovered at [1, 2, 3, 4, 80, 120, 160, 210] (tested [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 30, 40, 60, 80, 120, 160, 210]). One PRN cannot define a shift at all - there is nothing to relate it to - and the flip decisions need the sqrt(N) combining gain: 12 PRNs buy 10.8 dB where 4 buy 6 dB.
+- **Data bits changing at random per PRN.** Over 16 runs, 76 of 192 PRN-records carried a transition inside the record, drawn with probability = record length / 20 ms, and the sign-pattern detector located 188 of them exactly. Runs that did not recover every chip: ['bitprob-2ms-52db-seed1', 'bitprob-2ms-52db-seed2', 'bitprob-4ms-52db-seed2']. At 2 ms the record holds two code periods, which is too few to fit a phase slope *and* locate a step, so a transition there costs the Doppler estimate (371 Hz error in one run) even though the chips survive.
 - **Record length.** 2 ms is not enough (failures: ['periods-2-seed1', 'periods-2-seed2']); 4 ms and longer are exact.
 - **Fractional code phase** (non-integer sample delay): flips stay exact and the worst Doppler error is 3.88 Hz, but cancellation leaves 1.137 of the noise level behind at a half-sample chip offset, because the replica uses integer-sample rectangular chips. The flips do not care; a residual-power check does.
 - **A navigation data bit flipping mid-record**: worst Doppler error 3.74 Hz over 4 runs. This case used to return ~100 Hz while claiming +-1.5 Hz; the sign change is now modelled, so it costs nothing.
@@ -208,18 +211,67 @@ Nothing here reads `gnss_observation.nc` or `gnss_observation2.nc`: these are fr
 
 | scenario | detected | max doppler err | slope | margin | K true/rec | precision | recall | f1 | residual/true noise | verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| prns-1-seed1 | 1/1 | 0.02 Hz | 0 WRONG | 0.000 | 15/0 | 0.00 | 0.00 | 0.00 | 0.999 | slope |
+| prns-1-seed2 | 1/1 | 1.04 Hz | 0 WRONG | 0.000 | 15/0 | 0.00 | 0.00 | 0.00 | 1.004 | slope |
 | prns-2-seed1 | 2/2 | 2.10 Hz | 2 ok | 0.534 | 15/13 | 1.00 | 0.87 | 0.93 | 0.997 | partial |
 | prns-2-seed2 | 2/2 | 1.49 Hz | 2 ok | 0.610 | 15/14 | 1.00 | 0.93 | 0.97 | 1.001 | partial |
+| prns-3-seed1 | 3/3 | 2.45 Hz | 2 ok | 0.869 | 15/12 | 1.00 | 0.80 | 0.89 | 0.997 | flips |
+| prns-3-seed2 | 3/3 | 5.78 Hz | 2 ok | 1.149 | 15/14 | 1.00 | 0.93 | 0.97 | 1.001 | partial |
 | prns-4-seed1 | 4/4 | 4.44 Hz | 2 ok | 1.575 | 15/14 | 1.00 | 0.93 | 0.97 | 0.997 | partial |
 | prns-4-seed2 | 4/4 | 2.39 Hz | 2 ok | 1.510 | 15/16 | 0.94 | 1.00 | 0.97 | 1.001 | partial |
+| prns-5-seed1 | 5/5 | 2.46 Hz | 2 ok | 2.235 | 15/14 | 1.00 | 0.93 | 0.97 | 0.997 | partial |
+| prns-5-seed2 | 5/5 | 1.77 Hz | 2 ok | 2.167 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
 | prns-6-seed1 | 6/6 | 3.06 Hz | 2 ok | 2.803 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
 | prns-6-seed2 | 6/6 | 2.41 Hz | 2 ok | 2.326 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
+| prns-7-seed1 | 7/7 | 3.66 Hz | 2 ok | 2.810 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
+| prns-7-seed2 | 7/7 | 1.61 Hz | 2 ok | 2.500 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
 | prns-8-seed1 | 8/8 | 1.40 Hz | 2 ok | 3.114 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
 | prns-8-seed2 | 8/8 | 2.49 Hz | 2 ok | 2.315 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
+| prns-9-seed1 | 9/9 | 2.98 Hz | 2 ok | 3.082 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
+| prns-9-seed2 | 9/9 | 3.08 Hz | 2 ok | 2.946 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
 | prns-10-seed1 | 10/10 | 7.00 Hz | 2 ok | 2.924 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
 | prns-10-seed2 | 10/10 | 1.64 Hz | 2 ok | 3.034 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
 | prns-12-seed1 | 12/12 | 5.17 Hz | 2 ok | 3.699 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
 | prns-12-seed2 | 12/12 | 2.32 Hz | 2 ok | 2.869 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
+| prns-16-seed1 | 16/16 | 5.14 Hz | 2 ok | 4.024 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
+| prns-16-seed2 | 16/16 | 3.75 Hz | 2 ok | 3.673 | 15/15 | 1.00 | 1.00 | 1.00 | 1.002 | pass |
+| prns-20-seed1 | 20/20 | 6.13 Hz | 2 ok | 4.220 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
+| prns-20-seed2 | 20/20 | 3.29 Hz | 2 ok | 3.685 | 15/15 | 1.00 | 1.00 | 1.00 | 1.002 | pass |
+| prns-30-seed1 | 30/30 | 5.20 Hz | 2 ok | 4.622 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
+| prns-30-seed2 | 30/30 | 2.96 Hz | 2 ok | 3.939 | 15/15 | 1.00 | 1.00 | 1.00 | 1.003 | pass |
+| prns-40-seed1 | 40/40 | 6586.25 Hz | 2 ok | 4.766 | 15/15 | 1.00 | 1.00 | 1.00 | 1.072 | pass |
+| prns-40-seed2 | 38/40 | 3.40 Hz | 2 ok | 4.056 | 15/15 | 1.00 | 1.00 | 1.00 | 1.081 | detection |
+| prns-60-seed1 | 60/60 | 6586.59 Hz | 2 ok | 5.021 | 15/15 | 1.00 | 1.00 | 1.00 | 1.080 | pass |
+| prns-60-seed2 | 58/60 | 4.63 Hz | 2 ok | 4.403 | 15/15 | 1.00 | 1.00 | 1.00 | 1.087 | detection |
+| prns-80-seed1 | 78/80 | 4.03 Hz | 2 ok | 5.256 | 15/15 | 1.00 | 1.00 | 1.00 | 1.091 | detection |
+| prns-80-seed2 | 78/80 | 6.21 Hz | 2 ok | 4.497 | 15/15 | 1.00 | 1.00 | 1.00 | 1.094 | detection |
+| prns-120-seed1 | 118/120 | 10.64 Hz | 2 ok | 5.303 | 15/12 | 1.00 | 0.80 | 0.89 | 1.245 | detection |
+| prns-120-seed2 | 118/120 | 11.16 Hz | 2 ok | 4.867 | 15/15 | 1.00 | 1.00 | 1.00 | 1.161 | detection |
+| prns-160-seed1 | 158/160 | 10.80 Hz | 2 ok | 5.185 | 15/15 | 1.00 | 1.00 | 1.00 | 1.466 | detection |
+| prns-160-seed2 | 158/160 | 12.39 Hz | 2 ok | 4.447 | 15/15 | 1.00 | 1.00 | 1.00 | 1.617 | detection |
+| prns-210-seed1 | 197/210 | 11.60 Hz | 2 ok | 4.383 | 15/7 | 1.00 | 0.47 | 0.64 | 3.176 | detection |
+| prns-210-seed2 | 202/210 | 11.56 Hz | 2 ok | 3.796 | 15/3 | 1.00 | 0.20 | 0.33 | 3.073 | detection |
+## bit_probability
+
+| scenario | detected | max doppler err | slope | margin | K true/rec | precision | recall | f1 | residual/true noise | verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| bitprob-2ms-55db-seed1 | 12/12 | 19.82 Hz | 2 ok | 2.541 | 15/15 | 1.00 | 1.00 | 1.00 | 0.991 | pass |
+| bitprob-2ms-55db-seed2 | 12/12 | 371.73 Hz | 2 ok | 1.965 | 15/15 | 1.00 | 1.00 | 1.00 | 1.064 | pass |
+| bitprob-2ms-52db-seed1 | 12/12 | 23.10 Hz | 2 ok | 1.442 | 15/17 | 0.88 | 1.00 | 0.94 | 0.990 | partial |
+| bitprob-2ms-52db-seed2 | 12/12 | 369.21 Hz | 2 ok | 1.140 | 15/14 | 0.93 | 0.87 | 0.90 | 1.026 | flips |
+| bitprob-4ms-55db-seed1 | 12/12 | 8.51 Hz | 2 ok | 3.356 | 15/15 | 1.00 | 1.00 | 1.00 | 0.987 | pass |
+| bitprob-4ms-55db-seed2 | 12/12 | 13.50 Hz | 2 ok | 2.963 | 15/15 | 1.00 | 1.00 | 1.00 | 1.002 | pass |
+| bitprob-4ms-52db-seed1 | 12/12 | 9.75 Hz | 2 ok | 2.510 | 15/15 | 1.00 | 1.00 | 1.00 | 0.986 | pass |
+| bitprob-4ms-52db-seed2 | 12/12 | 17.90 Hz | 2 ok | 2.264 | 15/14 | 1.00 | 0.93 | 0.97 | 1.003 | partial |
+| bitprob-8ms-55db-seed1 | 12/12 | 2.52 Hz | 2 ok | 4.513 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
+| bitprob-8ms-55db-seed2 | 12/12 | 3.83 Hz | 2 ok | 3.727 | 15/15 | 1.00 | 1.00 | 1.00 | 1.002 | pass |
+| bitprob-8ms-52db-seed1 | 12/12 | 3.26 Hz | 2 ok | 3.700 | 15/15 | 1.00 | 1.00 | 1.00 | 0.996 | pass |
+| bitprob-8ms-52db-seed2 | 12/12 | 4.68 Hz | 2 ok | 3.016 | 15/15 | 1.00 | 1.00 | 1.00 | 1.001 | pass |
+| bitprob-16ms-55db-seed1 | 12/12 | 0.91 Hz | 2 ok | 5.121 | 15/15 | 1.00 | 1.00 | 1.00 | 0.999 | pass |
+| bitprob-16ms-55db-seed2 | 12/12 | 0.95 Hz | 2 ok | 4.255 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
+| bitprob-16ms-52db-seed1 | 12/12 | 1.13 Hz | 2 ok | 4.418 | 15/15 | 1.00 | 1.00 | 1.00 | 0.999 | pass |
+| bitprob-16ms-52db-seed2 | 12/12 | 1.11 Hz | 2 ok | 3.665 | 15/15 | 1.00 | 1.00 | 1.00 | 0.997 | pass |
+
 
 ## duration
 

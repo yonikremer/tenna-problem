@@ -53,6 +53,26 @@ def test_chip_vector_recovers_exactly_the_known_flips(synthetic, truth_clean):
         assert np.all(np.abs(whole) > 0)
 
 
+def test_chip_periods_average_is_the_chip_vector(synthetic, truth_clean):
+    lattice = synthetic.lattice
+    samples_per_chip = generator.SAMPLES_PER_CODE_PERIOD // generator.CODE_LENGTH_IN_CHIPS
+    arguments = (
+        truth_clean.cleaned[3],
+        3,
+        lattice,
+        synthetic.truth[3]["doppler_hz"],
+        truth_clean.shifts[3],
+        generator.SAMPLES_PER_CODE_PERIOD,
+        samples_per_chip,
+    )
+    _, whole, periods = chips.chip_vector(*arguments)
+    values = chips.chip_periods(*arguments)
+    assert values.shape == (periods, generator.CODE_LENGTH_IN_CHIPS, samples_per_chip)
+    assert np.allclose(values.mean(axis=(0, 2)), whole)
+    # a half-record reading must still point the same way, or the split-half test reads nothing
+    assert np.real(chips.align(values[: periods // 2].mean(axis=(0, 2)))).mean() > 0.0
+
+
 def test_main_writes_one_row_per_chip(synthetic, capsys):
     chip_extraction.main([synthetic.recording])
     capsys.readouterr()

@@ -252,6 +252,36 @@ power ratio             = 0.9422  = -0.259 dB
 Signal level on the composite: measured **+0.214 to +0.370 dB** with the truth-modified replica, mean
 +0.277 dB. On a clean single satellite: exactly +0.259 dB.
 
+`python -m analysis.explain` puts the whole explanation in one table per recording, with no truth
+file: explained power and its correlation with the recording, residual against the noise variance,
+the closed-form excess the nominal codes must leave, per-PRN gain against the ceiling, and a
+permutation null over random chip masks.
+
+## Is the recovered mask an artefact of the search?
+
+`python -m analysis.correctness` answers that three ways, all measured on the two supplied files.
+
+**Split-half.** Recover the mask from code periods 0-3 only, score it on periods 4-7, and reverse.
+On recording 1 both halves independently return slope 2 and **exactly the same 15 positions**; the
+transfer gain is **+0.201 dB** and **+0.191 dB** against a random-mask null of -0.30 to -0.18 dB.
+On recording 2 both halves return 13 chips and a transfer gain of +0.137 and +0.154 dB, and the
+out-of-sample count is 13 with 14 tied (+0.137) and 15 clearly behind (+0.105).
+
+**Evidence per chip, leave-one-PRN-out.** A Gaussian log-likelihood ratio between "flipped at this
+satellite's own amplitude" and "unflipped", summed over the twelve PRNs, gives a Bayes factor per
+chip. Recording 1: all fifteen between **1.5e27 and 1.3e51**, and the five chips the ranking puts
+next all have negative log-likelihood ratios (-68 to -118). Recording 2, fixed chips: thirteen between
+**4.7e4 and 3.1e9**,
+chip `1008` at **34** (weak), chip `987` at **0.32** (no support; 4 of 12 PRNs read it negative).
+The ranked count posterior for recording 2 is **P(13) = 0.98, P(14) = 0.02, P(15) < 1e-4**.
+So the honest reading is: the mask has fifteen positions, recording 1 proves all of them, recording 2
+proves thirteen and cannot decide the fourteenth.
+
+**Transfer between recordings.** A mask recovered from one file, applied to the other with nothing
+fitted on the target, gains **+0.200 dB** (recording 1's 15 chips on recording 2) and **+0.173 dB**
+(recording 2's 13 chips on recording 1). Recording 2's entire 13-chip answer is a subset of
+recording 1's 15.
+
 ## Synthetic 55 dB-Hz shared-mask scan
 
 New scenario in `tests/global_flip.py` and `tests/test_global_mask_scan.py`:
@@ -352,13 +382,36 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | --- | --- |
 | C/N0 per PRN | exact down to 47 dB-Hz; at 45 dB-Hz recall falls to 0.73-0.80 |
 | flipped chips per PRN | exact for 3 to 240 of 1023; at 320 the shift search fails; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
-| PRNs at 52 dB-Hz | exact from 6 PRNs; 2 and 4 PRN cases lose 7-13% of the chips |
+| PRNs at 52 dB-Hz | exact from 6 to 30 PRNs; 1 PRN cannot define a shift, 2-5 miss 1-3 chips, 40+ start losing detections |
 | record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
 | Doppler | exact at 0 Hz, within +-2 Hz and within +-20 Hz; found to about +-5.5 kHz, nothing at +-5.8 kHz |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz (100 Hz before the fix below) |
+| data bits changing at random per PRN | exact at 8 and 16 ms; at 2 ms the Doppler fit degrades (371 Hz worst) |
 | independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
+
+**How many PRNs.** Below six, the combining gain is not there: one PRN cannot define a shift at all
+(there is nothing to relate it to, and the recovered pattern is empty), two keep 13-14 of the 15 chips,
+three to five miss one to three. Six to thirty recover every chip, every seed. From forty upwards the
+limit is not the flip search but **detection**: 38/40 and 58/60 PRNs found at 40 and 60, 78/80 at 80,
+118/120 at 120, 158/160 at 160 and 197-202 out of 210. The cause is multi-access: at 52 dB-Hz a weak
+PRN's correlation peak can lose to the cross-correlation spikes of forty others, and the single-pass
+cancellation cannot repair it because it is built from those same parameters. The measured consequence
+is visible in the residual: 1.07x noise at 40 PRNs, 1.25 at 120, 1.6 at 160 and 3.2 at 210, so the
+consensus weakens and only 3-7 of the 15 chips survive at 210. One 40-PRN run also accepted a Doppler
+6.6 kHz away from the truth for one PRN, which the verdict survived because the other 39 were clean.
+Fixing that needs an iterative cancel-and-reacquire pass; it is not done, because the assignment has 12
+PRNs and the honest statement is that the method is built for that regime.
+
+**Data bits that really change.** A navigation bit lasts 20 ms, so a recording of N ms that starts at a
+random point in the bit carries one transition with probability N/20. Drawing that per PRN gives 76
+transitions across 192 PRN-records in the sweep, and the sign-pattern detector located 188 of those 192
+PRN-records correctly. Recovery is exact at 8 ms (the assignment's length, P=0.4) and at 16 ms (P=0.8),
+one 4 ms run comes back a chip short, and at 2 ms the Doppler fit suffers: two code periods are too few
+to fit a phase slope *and* locate a step, so one run accepted a 371 Hz error while still recovering all
+15 chips. The chips survive because the chip average uses the per-period sign pattern, which works from
+four periods up.
 
 The Doppler questions are all answered by measurement, and two of the three fears are unfounded.
 With every PRN at 0 Hz, or all twelve within +-2 Hz, or within +-20 Hz, recovery is exact: different
@@ -431,6 +484,8 @@ residual-power check notices, because the chip signs are still read correctly.
 | `analysis/interference_cancellation.py` | what cancellation buys, measured |
 | `analysis/greedy_flip.py` | analytic chip-flip score, checked against a direct correlation |
 | `analysis/joint_flip.py` | shared-mask benchmarks |
+| `analysis/explain.py` | explained power, residual/noise, excess prediction, permutation p-value |
+| `analysis/correctness.py` | split-half transfer, per-chip Bayes factors, count posterior, cross-file transfer |
 | `analysis/data_bit_check.py` | did a navigation bit change inside the recording |
 | `analysis/code_phase_accuracy.py` | code-phase bias and spread against injected truth |
 | `analysis/segment_identity.py` | are the code periods copies |

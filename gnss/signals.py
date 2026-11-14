@@ -45,6 +45,11 @@ def carrier(length: int, lattice: Lattice, doppler_hz: float, phase_rad: float =
     return np.exp(2j * np.pi * doppler_hz * times + 1j * phase_rad)
 
 
+def satellite_range() -> tuple:
+    """Satellite numbers the published C/A code table defines (1..210 in the vendored copy)."""
+    return min(ca.g2_delay), max(ca.g2_delay)
+
+
 def first_10_chips(satellite: int) -> int:
     """First ten chips of a satellite's code, as the published octal vector."""
     return ca.first_10_chips(satellite)
@@ -119,6 +124,8 @@ def fit_amplitudes(samples: np.ndarray, units: dict) -> dict:
 
 def reconstruct(coefficients: dict, units: dict) -> np.ndarray:
     """Sum of every modelled satellite at its fitted amplitude."""
+    if not units:
+        raise ValueError("reconstruct needs at least one unit waveform")
     total = np.zeros(len(next(iter(units.values()))), dtype=np.complex128)
     for key, unit in units.items():
         total += coefficients[key] * unit
@@ -131,10 +138,17 @@ def residual(samples: np.ndarray, coefficients: dict, units: dict) -> np.ndarray
 
 
 def cleaned(samples: np.ndarray, coefficients: dict, units: dict, key) -> np.ndarray:
-    """The recording with every satellite except `key` removed."""
+    """The recording with every satellite except `key` removed.
+
+    With only one satellite modelled there is nothing to remove, and saying so directly is better
+    than summing an empty set of waveforms.
+    """
+    other_units = {other: unit for other, unit in units.items() if other != key}
+    if not other_units:
+        return samples
     others = reconstruct(
-        {other: coefficient for other, coefficient in coefficients.items() if other != key},
-        {other: unit for other, unit in units.items() if other != key},
+        {other: coefficients[other] for other in other_units},
+        other_units,
     )
     return samples - others
 

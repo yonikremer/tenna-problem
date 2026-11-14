@@ -18,7 +18,7 @@ from .lattice import Lattice
 from .signals import spreading_code_replica
 
 
-def chip_vector(
+def chip_periods(
     samples: np.ndarray,
     satellite: int,
     lattice: Lattice,
@@ -26,16 +26,12 @@ def chip_vector(
     shift_samples: float,
     period_samples: int | None = None,
     samples_per_chip: int | None = None,
-):
-    """Complex value of every chip, averaged over the code periods in the record.
+) -> np.ndarray:
+    """Every code period's reading of every chip, shape `(periods, chips, samples_per_chip)`.
 
-    The chip index of a sample follows from the measured code phase, so it is already the code
-    coordinate: no relabelling roll is needed, and a delay that is not a whole number of chips is
-    handled by sampling each chip's midpoint.
-
-    A navigation data bit that changes inside the record inverts the sign of the later periods, and
-    averaging straight across that boundary cancels much of the signal. The boundary is detected from
-    the per-period sums and removed before the average.
+    The data-bit sign is already removed, so each period is an independent measurement of the same
+    chip values. `chip_vector` averages this array; a test that must not see the data it was chosen
+    from averages only part of it.
     """
     period_samples = lattice.samples_per_code_period if period_samples is None else period_samples
     samples_per_chip = lattice.samples_per_chip_whole if samples_per_chip is None else samples_per_chip
@@ -56,13 +52,37 @@ def chip_vector(
         samples_per_chip
     )[None, :]
     positions = np.floor(shift_samples + slots + 0.5).astype(int) % period_samples
-    values = blocks[:, positions]
+    return blocks[:, positions]
 
+
+def chip_vector(
+    samples: np.ndarray,
+    satellite: int,
+    lattice: Lattice,
+    doppler_hz: float,
+    shift_samples: float,
+    period_samples: int | None = None,
+    samples_per_chip: int | None = None,
+):
+    """Complex value of every chip, averaged over the code periods in the record.
+
+    The chip index of a sample follows from the measured code phase, so it is already the code
+    coordinate: no relabelling roll is needed, and a delay that is not a whole number of chips is
+    handled by sampling each chip's midpoint.
+
+    A navigation data bit that changes inside the record inverts the sign of the later periods, and
+    averaging straight across that boundary cancels much of the signal. The boundary is detected from
+    the per-period sums and removed before the average.
+    """
+    values = chip_periods(
+        samples, satellite, lattice, doppler_hz, shift_samples, period_samples, samples_per_chip
+    )
+    samples_per_chip = lattice.samples_per_chip_whole if samples_per_chip is None else samples_per_chip
     low = max(samples_per_chip // 2 - 1, 0)
     high = max(samples_per_chip // 2 + 1, low + 1)
     centre = values[:, :, low:high].mean(axis=2).mean(axis=0)
     whole = values.mean(axis=2).mean(axis=0)
-    return centre, whole, periods
+    return centre, whole, values.shape[0]
 
 
 def align(vector: np.ndarray) -> np.ndarray:

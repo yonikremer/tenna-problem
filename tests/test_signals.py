@@ -79,6 +79,19 @@ def test_fit_and_remove_recovers_an_injected_amplitude():
     assert np.allclose(only_first, 0.3 * units[1], atol=1e-2)
 
 
+def test_cleaned_with_only_one_satellite_leaves_the_recording_untouched():
+    generator = np.random.default_rng(3)
+    samples = generator.standard_normal(16) + 1j * generator.standard_normal(16)
+    units = {1: np.ones(16)}
+    coefficients = {1: 0.5 + 0j}
+    assert np.allclose(signals.cleaned(samples, coefficients, units, 1), samples)
+
+
+def test_reconstruct_needs_at_least_one_waveform():
+    with pytest.raises(ValueError):
+        signals.reconstruct({}, {})
+
+
 def test_vendor_path_is_added_once_and_reported_when_missing(monkeypatch):
     entry = vendor.add_to_import_path()
     already_present = sys.path.count(entry)

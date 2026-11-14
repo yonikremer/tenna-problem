@@ -97,11 +97,12 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | --- | --- |
 | C/N0 per PRN | exact down to **47 dB-Hz**; at 45 dB-Hz 73-80% of the flips come back |
 | flipped chips per PRN | exact for **3 to 240** of 1023 (one run at 200 came back a chip short); shift search fails at 320, detection at 400, nothing at 500 |
-| PRNs at 52 dB-Hz | exact from **6** PRNs; 2 or 4 PRNs leave 7-13% of the flips missing |
+| PRNs at 52 dB-Hz | exact from **6 to 30**; 1 PRN cannot define a shift at all, 2–5 miss a chip or two, and from 40 up a few PRNs stop being *detected* (78/80 at 80 PRNs, 197–202/210 at 210) |
 | record length | **4 ms and longer** exact; 2 ms loses 13-40% of the flips |
 | shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |
 | fractional code phase | flips exact at 0.25/0.5/0.75 sample offsets; residual power rises to 1.14x noise |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz |
+| data bits changing at random per PRN (P = record/20 ms) | exact at **8 and 16 ms**; at 2 ms a transition costs the Doppler fit (371 Hz) though the chips survive |
 | Doppler absent or clustered | exact with all 12 PRNs at **0 Hz**, within ±2 Hz, and within ±20 Hz |
 | Doppler far from zero | found to about **±5.5 kHz** with the default span; nothing at ±5.8 kHz — but raising `--max-speed-km-h` recovers **±6, ±10, ±15, ±20 and ±30 kHz exactly**, at the cost of search time and a slightly higher detection threshold |
 | no shared rule / no modification | reports **0 chips at 0.000 dB** — no rule invented |

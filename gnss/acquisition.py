@@ -365,6 +365,13 @@ def acquire(
     satellites = (
         parse_satellite_spec(DEFAULT_SATELLITES) if satellites is None else list(satellites)
     )
+    lowest, highest = signals.satellite_range()
+    outside = [number for number in satellites if not lowest <= number <= highest]
+    if outside:
+        raise SystemExit(
+            f"satellite numbers {outside[:5]}{' ...' if len(outside) > 5 else ''} are outside the "
+            f"spreading-code table ({lowest}..{highest})"
+        )
     samples, code_periods, lattice = load_recording(recording)
     length = len(samples)
     duration_s = length / lattice.sample_rate_hz
