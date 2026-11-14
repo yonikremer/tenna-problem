@@ -18,8 +18,9 @@ import sys
 import netCDF4
 import numpy as np
 
-from gnss import alignment, signals
+from gnss import alignment, chips, signals
 from gnss.acquisition import acquire, parse_satellite_spec
+from gnss.rule import fibonacci_base, rule_flips
 
 DEFAULT_RECORDINGS = ("data/gnss_observation.nc",)
 OFFSETS = 4096
@@ -85,52 +86,76 @@ def scan(recording: str, offsets: int = OFFSETS) -> dict:
 
 
 def verify(recording: str, offset: int, length: int) -> None:
-    """Rebuild the noise at the winning offset and check the signal that is left against the metadata."""
+    """Rebuild the noise at the winning offset, then score the signal models against the recording.
+
+    Two models are compared on the noise-free signal: the nominal spreading code, and the recovered
+    code with each PRN's fifteen flipped chips. The second is the answer; the first is what a reader
+    who ignores the flips would fit.
+    """
     samples, seed = load(recording)
     stream = np.random.default_rng(seed).standard_normal(2 * length + offset)
     noise = (stream[offset: offset + length] + 1j * stream[length + offset: length + offset + length]
              ) / np.sqrt(2.0)
     signal = samples - noise
     found = acquire(recording, parse_satellite_spec("1-12"))
-    units, coefficients = {}, {}
-    for prn, detection in found.detected.items():
-        shift = alignment.aligned_shift(samples, prn, found.lattice, detection.doppler_hz)
-        units[prn] = signals.unit_signal(
-            length, prn, found.lattice, detection.doppler_hz, shift, detection.bit_change_period
-        )
-        coefficients[prn] = np.vdot(units[prn], signal) / length
-    leftover = signal - signals.reconstruct(coefficients, units)
+    lattice = found.lattice
+    dopplers = {prn: detection.doppler_hz for prn, detection in found.detected.items()}
+    shifts = {
+        prn: float(round(alignment.aligned_shift(samples, prn, lattice, doppler)))
+        for prn, doppler in dopplers.items()
+    }
+    base = frozenset(fibonacci_base())
+    flips = {prn: frozenset(rule_flips(base, 2, prn)) for prn in dopplers}
+
+    def build(modified: bool) -> dict:
+        if not modified:
+            return {prn: signals.unit_signal(length, prn, lattice, dopplers[prn], shifts[prn])
+                    for prn in dopplers}
+        return {
+            prn: signals.flipped_replica(prn, length, lattice, shifts[prn], flips[prn])
+            * signals.carrier(length, lattice, dopplers[prn])
+            for prn in dopplers
+        }
+
+    def score(label: str, modified: bool) -> float:
+        units = build(modified)
+        coefficients = {prn: np.vdot(unit, signal) / length for prn, unit in units.items()}
+        leftover = signal - signals.reconstruct(coefficients, units)
+        model = signals.reconstruct(coefficients, units)
+        print(f"  {label}: leftover {np.mean(np.abs(leftover)**2):.2e} of received "
+              f"{np.mean(np.abs(samples)**2):.4f}, correlation with the recording "
+              f"{correlation(samples, model + noise):.6f}")
+        return np.mean(np.abs(leftover) ** 2)
+
+    print(f"  noise stream offset {offset}: I = draws 0..N, Q = draws N..2N, scale 1/sqrt(2)")
+    score("nominal spreading code", modified=False)
+    score("recovered 15-flip code", modified=True)
+
+    units = build(modified=True)
+    coefficients = {prn: np.vdot(unit, signal) / length for prn, unit in units.items()}
     with netCDF4.Dataset(recording) as dataset:
         declared = float(np.sqrt(getattr(dataset, "per_prn_signal_power", np.nan)))
-    # the amplitude of a satellite must be measured with the other eleven removed: projecting one
-    # satellite against the uncleaned composite picks up the others' cross-correlation and reads
-    # about 4% low
     amplitudes = np.array([
         abs(np.vdot(units[prn], signals.cleaned(signal, coefficients, units, prn))) / length
         for prn in units
     ])
-    print(f"  noise stream offset {offset}, I = draws 0..N, Q = draws N..2N, scale 1/sqrt(2)")
-    print(f"  amplitudes from the noise-free signal {amplitudes.min():.4f} to {amplitudes.max():.4f}, "
-          f"declared {declared:.4f}, mean ratio {amplitudes.mean() / declared:.4f}")
-    print(f"  leftover after the 12-satellite model: {np.mean(np.abs(leftover)**2):.5f} "
-          f"of {np.mean(np.abs(signal)**2):.4f} signal power")
-
-    # the leftover is a second noise term; identify it by its correlation structure
-    lags = [abs(np.vdot(leftover[:-k], leftover[k:])) / np.vdot(leftover, leftover) for k in range(1, 5)]
-    simulated = np.repeat(np.random.default_rng(1).standard_normal(length // 4 + 1), 4)[:length]
-    hold = [abs(np.vdot(simulated[:-k], simulated[k:])) / np.vdot(simulated, simulated)
-            for k in range(1, 5)]
-    print(f"  leftover autocorrelation at lags 1-4: {np.round(lags, 3)}")
-    print(f"  a chip-rate hold held 4x would give:  {np.round(hold, 3)}")
-    print(f"  leftover period-folded power {np.mean(np.abs(leftover.reshape(-1, 4092).mean(axis=0))**2):.5f}"
-          f" (a satellite signal folds coherently, noise does not)")
-
-    # is that second term the next draws of the same stream?
-    held = leftover.reshape(-1, 4).mean(axis=1)
-    tail = np.random.default_rng(seed).standard_normal(2 * length + 4 * len(held))[2 * length:]
-    candidate = (tail[: len(held)] + 1j * tail[len(held): 2 * len(held)]) / np.sqrt(2.0)
-    print(f"  correlation of that term with the next draws of the same stream: "
-          f"{correlation(candidate, held):.4f} (0 = not from this stream)")
+    print(f"  amplitude with the other eleven removed: {amplitudes.min():.4f} to "
+          f"{amplitudes.max():.4f}, declared {declared:.4f}, mean ratio "
+          f"{amplitudes.mean() / declared:.4f}")
+    exact = 0
+    worst = 0.0
+    for prn in sorted(units):
+        clean = signals.cleaned(signal, coefficients, units, prn)
+        values = np.real(
+            chips.align(chips.chip_periods(clean, prn, lattice, dopplers[prn], shifts[prn])
+                        .mean(axis=(0, 2)))
+        )
+        amplitude = np.median(np.abs(values))
+        negative = set(np.flatnonzero(values < 0).tolist())
+        exact += int(negative == set(flips[prn]))
+        worst = max(worst, float(np.max(np.abs(np.abs(values) - amplitude)) / amplitude))
+    print(f"  chip readout on the noise-free signal: {exact} of {len(units)} PRNs read exactly the "
+          f"fifteen rule positions, worst chip deviation {worst:.3f} of the amplitude")
 
 
 def main(recordings=DEFAULT_RECORDINGS):

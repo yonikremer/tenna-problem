@@ -54,8 +54,9 @@ Three things follow, and they are the file's own statements rather than my infer
 3. **The declared model is matched, not fitted.** Declared amplitude 0.2780; measured with the other
    satellites removed it is **0.2784**, a ratio of 1.001. (Projecting one satellite against the
    *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not perfectly
-   orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the noise
-   recovered from the seed below is 0.945 plus a 0.054 chip-rate term, which is 1.0.
+   orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the seeded
+   noise also measures 1.0, and the 0.054 left over by a nominal-code model is the 180 flipped chips,
+   not noise — see "The generator behind recording 1" below.
 
 Recording 1 also states that its `synthetic_truth` is a **prior inference, not verified truth**, which
 is why this report never treats it as ground truth.
@@ -74,16 +75,32 @@ noise = (I + 1j*Q) / sqrt(2)                        # unit complex variance
 
 Evidence: that stream correlates **0.9723** with the recording's noise at offset 0, against 0.0993 for
 the interleaved layout and a maximum of 0.094 over 4096 random offsets (chance). The correlation is
-not 1.0 only because the window still contains the 5% of the signal the fitted model does not
-explain. Subtracting the noise leaves the twelve satellites, whose amplitude then reads 0.2784
-against the declared 0.2780, and whose code phases land on whole samples.
+not 1.0 only because the window still contains signal the fitted model leaves behind.
 
-What is left after the noise and the twelve satellites — **5.4%** of the signal power — is a second
-noise term. Its autocorrelation at lags 1-4 is **0.748, 0.496, 0.243, 0.007**, which is what white
-noise sampled at the chip rate and held for four samples gives (simulated: 0.748, 0.496, 0.243, 0.009).
-It is not a satellite: under each recovered carrier it folds to 0.01 of its own power, and acquisition
-finds nothing in it. It is also not the next draws of the same stream — correlation 0.006 at the
-natural offset — so it comes from another generator or another seed.
+Subtracting the noise leaves the twelve satellites at effectively infinite signal-to-noise, and the
+model can then be checked to the last digit:
+
+| model of the signal | leftover power | correlation with the recording |
+| --- | --- | --- |
+| 12 satellites, **nominal** codes | 5.4e-2 | 0.985761 |
+| 12 satellites, **recovered 15-flip codes** | **9.3e-4** | **0.999768** |
+
+So the recovered sequence plus the recovered noise reproduce the file to **0.05% of its power**, and
+correlation **0.9998**. On the noise-free signal the chip readout returns **exactly the fifteen rule
+positions for all twelve PRNs**, worst chip deviation 0.095 of the amplitude, and the per-PRN
+amplitude is 0.2774-0.2780 against the declared 0.2780.
+
+**A correction worth recording.** The 5.4% leftover of the nominal model first looked like a second,
+chip-rate noise term: its autocorrelation at lags 1-4 is 0.748, 0.496, 0.243, 0.007, exactly what
+white noise sampled at the chip rate and held four samples gives. It is not noise. It is the 180
+flipped chips themselves, each four samples wide, which the nominal replica cannot cancel: the
+predicted power is `180 * (2*0.278)^2 * 32 / 32736 = 0.0544` against 0.05415 measured. Modelling the
+modified code is what removes it.
+
+With the Dopplers refined on the noise-free signal the leftover falls to 7.2e-4 and the correlation
+reaches **0.999824**; the delays stay on whole samples, so the integer-delay claim holds. What
+remains is 0.03 of the amplitude per sample, spread over the chips rather than concentrated on any
+one of them.
 
 What is **not** recovered is the parameter draws. The delays are a designed lattice: sorted, their
 circular gaps are 312-367 samples around 4092/12 = 341, and twelve uniform integers would give
