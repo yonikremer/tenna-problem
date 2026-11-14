@@ -14,6 +14,10 @@ from .signals import carrier, spreading_code_replica
 
 SUBSAMPLE_SPAN = 1.0
 SUBSAMPLE_STEP = 0.1
+# Energies within this relative distance of the maximum are the same alignment: the objective is
+# quantized to whole samples, so its differences inside one sample are numerical dust (0.1% in energy
+# is 0.05% in amplitude, 0.004 dB), not evidence for one shift over another.
+SUBSAMPLE_TIE = 1e-3
 
 
 def alignment_shift(samples: np.ndarray, satellite: int, lattice: Lattice, doppler_hz: float) -> float:
@@ -74,15 +78,31 @@ def refine_alignment(
     span: float = SUBSAMPLE_SPAN,
     step: float = SUBSAMPLE_STEP,
 ) -> float:
-    """Sub-sample alignment that maximises total segment energy."""
-    best_shift, best_energy = shift_samples, -1.0
-    for offset in np.arange(-span, span + 0.5 * step, step):
-        candidate = shift_samples + offset
-        segments = code_period_segments(samples, satellite, lattice, doppler_hz, candidate)
-        energy = sum(abs(total) ** 2 for _, total in segments)
-        if energy > best_energy:
-            best_shift, best_energy = candidate, energy
-    return best_shift
+    """Sub-sample alignment that maximises total segment energy, tied towards the coarse estimate.
+
+    The energy is not a smooth function of the shift: the code replica and the segment cuts both snap
+    to the sample grid, so a whole neighbourhood of shifts scores the same and the maximum is a
+    plateau about half a sample wide. Returning the first grid point of that plateau throws away the
+    sub-sample accuracy of the coarse parabolic fit and makes the result depend on where the scan
+    started. The plateau members are all equally consistent with the energy, so the one closest to the
+    coarse estimate is returned, and the resolution of the whole stage stays at one sample (0.25
+    chip) rather than being quoted to three decimals.
+    """
+    offsets = np.arange(-span, span + 0.5 * step, step)
+    energies = np.array([
+        sum(
+            abs(total) ** 2
+            for _, total in code_period_segments(
+                samples, satellite, lattice, doppler_hz, shift_samples + offset
+            )
+        )
+        for offset in offsets
+    ])
+    best = energies.max()
+    if best <= 0.0:
+        return shift_samples
+    plateau = offsets[energies >= best * (1.0 - SUBSAMPLE_TIE)]
+    return float(shift_samples + plateau[np.argmin(np.abs(plateau))])
 
 
 def aligned_shift(

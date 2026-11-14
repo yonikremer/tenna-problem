@@ -134,9 +134,9 @@
   ],
   "rule": {
     "slope_chips_per_prn": 2,
-    "alignment_score": 2.9879,
+    "alignment_score": 3.4836,
     "flipped_chips_per_prn": 15,
-    "held_out_gain_db": 0.1963,
+    "held_out_gain_db": 0.2439,
     "base_pattern": [
       34,
       411,

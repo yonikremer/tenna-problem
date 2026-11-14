@@ -35,7 +35,7 @@ base = 34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
 ```
 
 Fifteen positions, shifted **two chips per PRN index**. Recording 1 supports all fifteen; recording 2
-supports thirteen of them and is explicit about the two it cannot see (`987`, `1008`).
+supports fourteen of them and is explicit about the one it cannot see (`987`).
 
 ## 3. Signal model and vocabulary
 
@@ -124,8 +124,15 @@ first estimate comes from the **strongest single code period**, refined by a thr
 through the peak, and then by a sub-sample search that maximises total segment energy — insensitive to a
 sign change.
 
-Measured on injected delays at 55 dB-Hz: bias 0.003 chips, spread 0.018 chips (5 m of range), against a
-theoretical floor of 0.005 chips (1.4 m).
+Measured on injected band-limited delays at 55 dB-Hz, the finished stage is accurate to **bias −0.12,
+standard deviation 0.17, worst 0.42 sample** — 0.11 chip worst case. On the 75 dB-Hz test fixture, whose
+true delays are known, it lands within **0.07 sample (0.018 chip)** of every one of them.
+
+The refinement's objective is quantized: the code replica and the segment cuts both snap to the sample
+grid, so a whole neighbourhood of shifts scores the same and the maximum is a plateau. The returned
+value is the plateau member nearest the parabolic estimate; until this was fixed it was the *first*
+grid point of the plateau, which threw the sub-sample estimate away and sat up to **0.97 sample
+(0.24 chip)** from the truth — precision printed to three decimals while being off by a quarter chip.
 
 ## 6. Step 3 — Doppler to a fraction of a hertz
 
@@ -220,9 +227,9 @@ A correct chip raises the held-out correlation; a wrong chip lowers it. The coun
 is kept, and zero is a candidate — if no chip is flipped, or nothing is shared, the honest answer is no
 rule at all.
 
-Measured on recording 1: 15 chips at +0.196 dB, with 14 at +0.180 and 16 at +0.186, so the peak is
-narrow and unambiguous. On recording 2: 13 at +0.197, with 14 at +0.193 — inside the noise, which is
-why that recording is reported as 13 supported positions rather than a definite 15.
+Measured on recording 1: 15 chips at +0.244 dB, with 14 at +0.231 and 16 at +0.225, so the peak is
+narrow and unambiguous. On recording 2: 14 at +0.235, with 13 at +0.225 and 15 at +0.226 — the count
+is decided, and the one position that recording cannot confirm is `987` (see section 11).
 
 ## 10. Step 7 — the rule behind the positions
 
@@ -269,7 +276,7 @@ is left with the noise power:
 | recording | residual, nominal codes | residual, recovered codes | noise variance |
 | --- | --- | --- | --- |
 | 1 | 1.0421 | **0.9911** | 1.0511 |
-| 2 | 1.0053 | **0.9975** | 1.0065 |
+| 2 | 1.0053 | **0.9973** | 1.0065 |
 
 The recovered model leaves noise and nothing else. The nominal model leaves extra power, and that extra
 power is exactly the part of the signal the flips were hiding.
@@ -282,9 +289,9 @@ so the recovered code correlates with amplitude `(1023 - 2*15)/1023 = 993/1023` 
 ```
 
 Measured gain per satellite: **+0.188 to +0.338 dB, mean +0.249** on recording 1 — every satellite
-inside the ceiling band, so no recovered chip is wrong. On recording 2: +0.054 to +0.441, mean +0.240,
-ceiling +0.224: a wider spread because that recording is weaker, and it is the honest picture of a
-13-position recovery.
+inside the ceiling band, so no recovered chip is wrong. On recording 2: +0.078 to +0.439, mean +0.255,
+ceiling +0.241: a wider spread because that recording is weaker, and it is the honest picture of a
+14-position recovery.
 
 ## 12. Step 9 — where it stops working
 
@@ -293,7 +300,7 @@ Generated recordings with known truth, one axis at a time (`python benchmark.py`
 
 | axis | result |
 | --- | --- |
-| C/N0 per PRN | exact to 47 dB-Hz; at 45 dB-Hz 73–80% of chips |
+| C/N0 per PRN | exact in 57 of 60 known-truth runs at 47.5 dB-Hz, 30 of 30 at 55; at 45 dB-Hz 73–80% of chips |
 | flipped chips per PRN | exact to ~240 of 1023; soft edge above, detection fails from 400 |
 | PRNs at 52 dB-Hz | exact from 6; 2–4 PRNs miss 7–13% |
 | record length | 4 ms and longer exact; 2 ms misses 13–40% |

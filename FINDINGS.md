@@ -146,24 +146,27 @@ C[k] = mean over satellites of aligned v_s[k]
 Signal grows by 12, independent noise by `sqrt(12)` — about **10.8 dB** gain.
 
 Sample 1 result: exactly 15 chips negative, next value positive. The 15 lowest normalised consensus
-values are between −1.04 and −0.55; the 16th is +0.45. All 15 are below −2σ.
+values are between −2.63 and −4.73 sigma; the 16th is **+2.00**. All 15 are the rule's positions.
 
-Sample 2 result: 14 clear negatives; chip 987 is +0.007 and only 5/12 satellites negative. That is
-too weak to call a flip from this recording alone, but the rule still contains it.
+Sample 2 result: the 15 lowest are **exactly the rule's 15 positions**, but the last of them is barely
+negative — chip 987 at −0.42 sigma, with the 16th at +0.05. That is the whole of the 14-versus-15
+question: one chip whose measurement is a third of the per-chip error bar.
 
 ## Sample 2: 14 strong positions, 987 not measurable
 
 At the 15 base positions of sample 1, sample 2 gives:
 
-| chip | consensus (normalised) | satellites negative |
+| chip | consensus | satellites negative |
 | --- | --- | --- |
-| 987 | **+0.007** | **5/12** |
-| 1008 | −0.171 | 7/12 |
-| all other 13 | −0.419 to −0.954 | 7/12 to 12/12 |
+| 987 | **−0.42σ** | **6/12** |
+| 1008 | −0.92σ | 9/12 |
+| all other 13 | −1.38 to −3.69σ | 7/12 to 12/12 |
 
-`987` has no measurable support in this recording. `1008` is weak and is the only uncertain position
-among the other 14. The shipped decoder therefore reports 13 positions for this file, with 14 within
-0.005 dB (see below), and lists the rest of the rule as unconfirmed here.
+`987` is the one position this recording cannot settle: its best estimate is a third of the flip depth
+and six of twelve PRNs read it negative. `1008` is weak but on the right side. The shipped count
+criterion (held-out gain below) stops at 14 and names `987` as the rule position it cannot confirm,
+while the likelihood on the rule's own chips prefers 15 over 14 by 36:1 — the difference between
+those two criteria is the honest width of the answer here.
 
 ### Count without assuming 15
 
@@ -185,28 +188,25 @@ Shipped estimator, computed from the same soft chip vectors the decoder uses:
 
 | recording | best K | held-out gain | K-1 | K+1 |
 | --- | --- | --- | --- | --- |
-| `data/gnss_observation.nc` | **15** | +0.196 dB | +0.180 dB | +0.186 dB |
-| `data/gnss_observation2.nc` | **13** | +0.197 dB | +0.173 dB | +0.193 dB |
+| `data/gnss_observation.nc` | **15** | +0.244 dB | +0.231 dB (14) | +0.225 dB (16) |
+| `data/gnss_observation2.nc` | **14** | +0.235 dB | +0.225 dB (13) | +0.226 dB (15) |
 
-Sample 1 peaks at 15 with a clear margin on both sides. Sample 2 peaks at 13, and 14 is only 0.004 dB
-behind, which is inside the noise: **13-14 is the honest range for that recording**, and 15 is not
-supported. The stand-alone analysis further down measured the same gain on the composite recording
-instead of the cleaned per-PRN vectors and got the same picture, with 14 leading by 0.007 dB.
+Sample 1 peaks at 15 with a clear margin on both sides. Sample 2 peaks at 14, with 15 only 0.009 dB
+behind: the count is decided, and the single position it cannot confirm is `987`.
 
 Nearby counts for sample 2:
 
 | K | mean held-out gain |
 | --- | --- |
-| 13 | +0.239 dB |
-| **14** | **+0.246 dB** |
-| 15 | +0.223 dB |
-| 16 | +0.217 dB |
-| 20 | +0.161 dB |
+| 12 | +0.202 dB |
+| 13 | +0.225 dB |
+| **14** | **+0.235 dB** |
+| 15 | +0.226 dB |
+| 16 | +0.215 dB |
 
-Adding `1008` improves 9 of 12 held-out satellites. Adding `987` degrades all 12. So `987` is not
-supported by this recording, `1008` is marginal, and the rule discovered on sample 1 has 15
-positions. The report states exactly that: how many positions were recovered here, and which rule
-positions this recording cannot confirm.
+Adding `1008` to the 13-chip core raises the held-out gain by 0.010 dB. Adding `987` lowers it by
+0.009 dB. So this recording puts `1008` in and leaves `987` out, and that is exactly what the flip
+table reports: fourteen positions, with `987` named as the rule position it cannot confirm.
 
 ### Why the rule still has 15 positions
 
@@ -228,17 +228,69 @@ Dropping the term from the explanation would hide the mismatch. Emitting it in t
 evidence would hide the low confidence. Splitting the two states both facts, and the JSON artifact
 carries `positions_missing_here` next to the flips.
 
+### Is the `987` deficit a defect or the noise floor?
+
+`python -m analysis.chip_anomaly` perturbs every input the readout of one chip depends on, on the real
+file. Sample 2, chip `987`, reading in units of the local amplitude where a clean flip reads +1:
+
+| input perturbed | reading |
+| --- | --- |
+| as fitted | +0.14 ± 0.31 |
+| code phase −0.25 / +0.25 sample | +0.14 ± 0.31 / +0.18 ± 0.37 |
+| code phase −1.00 / +1.00 sample | −0.04 ± 0.28 / +0.27 ± 0.25 |
+| Doppler −5 / +5 Hz | +0.16 ± 0.32 / +0.12 ± 0.31 |
+| periods 0-3 | −0.09 ± 0.38 |
+| periods 4-7 | +0.36 ± 0.26 |
+
+Nothing moves it: the file is clean (no NaN, power flat to 3% across periods, no segment defect), no
+PRN carries a spurious navigation-bit step, the cancellation residual sits at the noise floor, and
+the two halves disagree with each other in the way independent noise does — not in the way a stable
+attenuation would.
+
+`python -m analysis.weakest_chip` then asks how often a *truly* flipped chip reads this low. Sixty
+synthetic recordings at sample 2's own amplitude (47.5 dB-Hz per PRN) and its Dopplers, run through
+the real chain: the weakest of the fifteen true chips has median **+0.44**, 5th percentile +0.17,
+minimum **+0.12**, and in **0 of 60 trials does a true chip read below +0.04**. Reported counts: 15 in
+57 trials, and 14, 16 and 17 once each. Sample 2's +0.14 at chip `987` sits at the first percentile of
+that spread — unlucky, but inside it.
+
+Those numbers are after the code-phase fix described below. Before it the same experiment, 60 trials at
+the same strength, gave a median weakest chip of +0.20, a minimum of −0.27, some chip below +0.04 in
+**14 of 60** trials, and the right count in only **28 of 60**. The alignment bug was costing real
+signal-to-noise, not just printed decimals: sample 2's own reading at `987` rose from −0.04 to +0.14
+and its recovered count from 13 to 14 when the fix landed.
+
+### 13, 14 or 15: fixed-mask likelihood
+
+The ranking-based count search answers "how many chips does a ranking support", which is not the same
+question as "is this named chip flipped". With the chips fixed (section 2a of `correctness.py`), the
+whole-mask log-likelihood ratio for sample 2 is:
+
+| mask | log-likelihood ratio |
+| --- | --- |
+| 13 chips (rule minus 987 and 1008) | +273.7 |
+| 14 chips (+1008) | +280.7, i.e. **1075:1** over 13 |
+| 15 chips (+987) | +284.3, i.e. **36:1 for** including 987 over 14 |
+
+So sample 2 prefers the full 15-chip set over the 13-chip set by about **4e4:1**, and prefers 15 over
+14 by 36:1. The ranking search still reports P(14) = 0.9996, P(15) = 0.0003, because it has to
+*rediscover* which 1023 positions are in play and `987` ranks fifteenth there. Both statements are
+true and they answer different questions: the count this file can establish on its own is 14, the mask
+it fits best among the rule's chips is 15, and the 15-chip rule is not contradicted by any measurement
+in the file.
+
 ## Evidence that the aligned mask is real
 
 For sample 1, derive the mask from 11 satellites and test the 12th:
 
-- held-out correlation gain: **+0.188 to +0.338 dB**, mean +0.249 dB
-- random 15-chip masks: **−0.23 to −0.27 dB**
+- held-out correlation gain: **+0.188 to +0.338 dB**, mean +0.249 dB (per-PRN waveform fit, not the
+  chip-domain mask gain)
+- chip-domain mask gain: **+0.244 dB** against a random-mask null of −0.29 to −0.19 dB
 
 A wrong mask flips wrong chips and loses correlation. The held-out gain means the mask explains
 satellites it was not fitted on.
 
-For sample 2 with K=14, held-out gains are **+0.053 to +0.444 dB**, mean +0.246 dB.
+For sample 2 with K=14, the per-PRN waveform gains are **+0.078 to +0.439 dB**, mean +0.255 dB.
 
 ## Correlation gain from using the correct modified code
 
@@ -263,24 +315,64 @@ permutation null over random chip masks.
 
 **Split-half.** Recover the mask from code periods 0-3 only, score it on periods 4-7, and reverse.
 On recording 1 both halves independently return slope 2 and **exactly the same 15 positions**; the
-transfer gain is **+0.201 dB** and **+0.191 dB** against a random-mask null of -0.30 to -0.18 dB.
-On recording 2 both halves return 13 chips and a transfer gain of +0.137 and +0.154 dB, and the
-out-of-sample count is 13 with 14 tied (+0.137) and 15 clearly behind (+0.105).
+transfer gain is **+0.243 dB** and **+0.245 dB** against a random-mask null of −0.30 to −0.18 dB, and
+the out-of-sample count is 15 in both directions with 14 and 16 both 0.02 dB behind.
+On recording 2 the halves are much weaker (half the periods is 3 dB less): periods 0-3 return 13 chips
+and periods 4-7 return 8, with transfer gains of +0.149 and +0.161 dB and out-of-sample counts of 14
+and 12. That recording is genuinely close to the edge of what 8 ms supports.
 
-**Evidence per chip, leave-one-PRN-out.** A Gaussian log-likelihood ratio between "flipped at this
-satellite's own amplitude" and "unflipped", summed over the twelve PRNs, gives a Bayes factor per
-chip. Recording 1: all fifteen between **1.5e27 and 1.3e51**, and the five chips the ranking puts
-next all have negative log-likelihood ratios (-68 to -118). Recording 2, fixed chips: thirteen between
-**4.7e4 and 3.1e9**,
-chip `1008` at **34** (weak), chip `987` at **0.32** (no support; 4 of 12 PRNs read it negative).
-The ranked count posterior for recording 2 is **P(13) = 0.98, P(14) = 0.02, P(15) < 1e-4**.
+**Evidence per chip.** A Gaussian log-likelihood ratio between "flipped at this satellite's own
+amplitude" and "unflipped", summed over the twelve PRNs, gives a Bayes factor per chip. Recording 1:
+all fifteen between **1.7e35 and 1.4e63**, each with 11 or 12 of 12 PRNs reading it negative, and the
+two Fibonacci positions just outside the set (447, 483) at 1.3e−56 and 3.0e−49 with 0 of 12 negative.
+Recording 2, fixed chips: thirteen between **9.2e4 and 7.9e12**, chip `1008` at **1.1e3**, chip `987`
+at **36** (weak; 6 of 12 PRNs read it negative).
+
+The ranking search reports a posterior for recording 2 of P(14) = 0.9996, P(15) = 0.0003, but that
+answers a different question. It scans all 1023 positions and asks how many chips the file can
+establish *without being told which*; the per-chip rows ask whether a *named* chip is flipped. Scored
+on the rule's own chips, recording 2 prefers:
+
+| mask | log-likelihood ratio | reading |
+| --- | --- | --- |
+| 13 chips (rule minus 987, 1008) | +273.7 | baseline |
+| 14 chips (+1008) | +280.7 | **1075:1** over 13 |
+| 15 chips (+987) | +284.3 | **36:1 for** 15 over 14, **4e4:1** for 15 over 13 |
+
 So the honest reading is: the mask has fifteen positions, recording 1 proves all of them, recording 2
-proves thirteen and cannot decide the fourteenth.
+establishes fourteen on its own and mildly prefers the fifteenth.
 
 **Transfer between recordings.** A mask recovered from one file, applied to the other with nothing
-fitted on the target, gains **+0.200 dB** (recording 1's 15 chips on recording 2) and **+0.173 dB**
-(recording 2's 13 chips on recording 1). Recording 2's entire 13-chip answer is a subset of
-recording 1's 15.
+fitted on the target, gains **+0.237 dB** (recording 1's 15 chips on recording 2) and **+0.227 dB**
+(recording 2's 14 chips on recording 1). Recording 2's entire answer is a subset of recording 1's 15.
+
+## How much of the 14/15 answer is noise? Known-truth comparison
+
+The 14th and 15th positions are the low-confidence ones for a measurable reason: at recording 2's
+strength each chip gets only about **3.2 sigma** of combined evidence, where recording 1 gets 5.4.
+`python -m analysis.weakest_chip` turns that into a rate by generating recordings with known truth
+and running the real chain on them.
+
+| case | strength | truth | weakest true chip (units of amplitude) | count recovered |
+| --- | --- | --- | --- | --- |
+| recording 1 | 55 dB-Hz | 15 positions | +0.98 (chip 987) | 15 |
+| recording 2 | 47.5 dB-Hz | 15 positions assumed | **+0.14** (chip 987) | 14 |
+| 60 known-truth trials | 47.5 dB-Hz | 15 | median +0.44, 5th pct +0.17, worst +0.12 | 15 in 57, 14/16/17 once each |
+| 30 known-truth trials | 55 dB-Hz | 15 | median +0.75, worst +0.64 | 15 in 30 |
+| 12-PRN test fixture | 75 dB-Hz | 15 per PRN, independent | greedy test finds 179 of 180, 43 false | no shared rule to recover |
+
+What the table says:
+
+- A truly flipped chip at 47.5 dB-Hz never read below **+0.12** in 60 trials. Recording 2's +0.14 at
+  chip `987` is at the first percentile — the unluckiest chip in thirty rule-chips across the two
+  files, and still positive.
+- The **count** at 47.5 dB-Hz came back as 15 in 57 of 60 trials. Recording 2's 14 is the one-in-sixty
+  tail, which is exactly what a single chip at the first percentile of its own distribution produces.
+- At 55 dB-Hz the weakest true chip never fell below +0.64 and the count was right in 30 of 30, which
+  is why recording 1 settles all fifteen positions and recording 2 needs the rule to settle the last
+  one.
+- The 75 dB-Hz fixture shows the ceiling: with 1.57x more amplitude per chip the per-PRN greedy test
+  alone finds 179 of 180 true flips, and the shared rule is not needed to decide them.
 
 ## Synthetic 55 dB-Hz shared-mask scan
 
@@ -453,11 +545,12 @@ residual-power check notices, because the chip signs are still read correctly.
 
 - Real-file flips are inferred, not given. The evidence is the held-out correlation gain, not a truth
   file.
-- Sample 1: 15 flips is strong. Sample 2: 13-14 supported; chip `987` is not measurable there and is
-  reported as an unsupported rule position, neither silently removed nor silently emitted. 14 is
-  possible if 1008 is real.
-- Chip `1008` in sample 2 is marginal: consensus −0.171, 7/12 negative, but including it helps 9/12
-  held-out satellites.
+- Sample 1: 15 flips is strong — every chip is negative in 11 or 12 of the 12 PRNs, Bayes factors
+  1.7e35 to 1.4e63. Sample 2: 14 positions supported and emitted; chip `987` is the one rule position
+  it cannot confirm (Bayes factor 36 for flipped, 6 of 12 PRNs negative) and is reported as an
+  unsupported rule position, neither silently removed nor silently emitted.
+- Chip `1008` in sample 2 is weak but positive: 9 of 12 PRNs negative, Bayes factor 1.1e3, and adding
+  it raises the held-out gain by 0.010 dB.
 - The sign convention in the rule: PRN s flips `base - 2*(s-1)`. The opposite convention would use
   `base + 2*(s-1)`; the slope magnitude is the same.
 - The Fibonacci interpretation is an observation about the base positions, not proof of the
@@ -486,6 +579,8 @@ residual-power check notices, because the chip signs are still read correctly.
 | `analysis/joint_flip.py` | shared-mask benchmarks |
 | `analysis/explain.py` | explained power, residual/noise, excess prediction, permutation p-value |
 | `analysis/correctness.py` | split-half transfer, per-chip Bayes factors, count posterior, cross-file transfer |
+| `analysis/chip_anomaly.py` | one chip's reading under code-phase, Doppler and half-record perturbations |
+| `analysis/weakest_chip.py` | Monte Carlo: how low a truly flipped chip reads at a given SNR |
 | `analysis/data_bit_check.py` | did a navigation bit change inside the recording |
 | `analysis/code_phase_accuracy.py` | code-phase bias and spread against injected truth |
 | `analysis/segment_identity.py` | are the code periods copies |

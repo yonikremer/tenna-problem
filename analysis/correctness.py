@@ -22,7 +22,14 @@ import numpy as np
 from analysis.explain import mask_gain
 from gnss import alignment, chips, signals
 from gnss.acquisition import acquire
-from gnss.rule import CODE_LENGTH, align_and_sum, aligned_matrix, fibonacci_base, recover_rule
+from gnss.rule import (
+    CODE_LENGTH,
+    FIBONACCI,
+    align_and_sum,
+    aligned_matrix,
+    fibonacci_base,
+    recover_rule,
+)
 
 DEFAULT_RECORDINGS = ("data/gnss_observation.nc", "data/gnss_observation2.nc")
 PERMUTATIONS = 500
@@ -188,15 +195,33 @@ def main(recordings=DEFAULT_RECORDINGS):
                   f"({', '.join(f'{k}: {by_count[k]:+.3f}' for k in sorted(by_count))})")
             assert gain > null.max(), "a mask chosen on the other half must beat every random mask"
 
-        print("\n 2a. evidence for each chip of the claimed 15-position rule, all 12 PRNs")
-        evidence = position_evidence(full, amplitude, sigma, rule.slope, fibonacci_base())
-        print("     chip   LLR    Bayes factor  P(flip)   PRNs negative")
+        print("\n 2a. is this named chip flipped? Evidence for the rule's chips, all 12 PRNs")
+        print("     this is the question the answer needs; 2b answers a different one")
+        print("     the last two rows are the next Fibonacci positions, outside the claimed set")
+        claimed = set(fibonacci_base())
+        positions = fibonacci_base(increments=FIBONACCI + (610, 987))
+        evidence = position_evidence(full, amplitude, sigma, rule.slope, positions)
+        print("     chip   LLR    Bayes factor  P(flip)   PRNs negative  in the rule")
         for chip, (ratio, negatives) in sorted(evidence.items()):
             factor = bayes_factor("", ratio)
             print(f"     {chip:>4}  {ratio:>+7.2f}  {factor:>12.1e}  "
-                  f"{factor / (1.0 + factor):>7.4f}   {negatives:>2}/12")
+                  f"{factor / (1.0 + factor):>7.4f}   {negatives:>2}/12          "
+                  f"{'yes' if chip in claimed else 'no'}")
 
-        print("\n 2b. count from leave-one-PRN-out ranking (position chosen by the other 11 PRNs)")
+        core = [chip for chip in claimed if chip not in (987, 1008)]
+        totals = {len(core): sum(evidence[chip][0] for chip in core)}
+        totals[len(core) + 1] = totals[len(core)] + evidence[1008][0]
+        totals[len(core) + 2] = totals[len(core) + 1] + evidence[987][0]
+        print(f"     whole-mask log-likelihood ratio: {len(core)} chips {totals[len(core)]:+.1f}, "
+              f"+1008 {totals[len(core) + 1]:+.1f}, +987 {totals[len(core) + 2]:+.1f}")
+        print(f"     so this file prefers {len(core) + 1} over {len(core)} by "
+              f"{bayes_factor('', totals[len(core) + 1] - totals[len(core)]):.0f}:1, and "
+              f"{len(core) + 2} over {len(core) + 1} by "
+              f"{bayes_factor('', totals[len(core) + 2] - totals[len(core) + 1]):.2f}:1")
+
+        print("\n 2b. how many chips can be found without being told which? Leave-one-PRN-out.")
+        print("     it scans all 1023 positions, so it reports the count this file establishes on its")
+        print("     own; it is not a verdict on the rule's chips, which is what 2a measures")
         llr, chosen = nested_evidence(full, amplitude, sigma, rule.slope, RANKS)
         probability = posterior(llr, RANKS)
         print("     rank  chip  folds  LLR     P(K = rank)  P(K > rank)")
@@ -207,6 +232,8 @@ def main(recordings=DEFAULT_RECORDINGS):
                   f"{probability[rank]:>10.4f}  {probability[rank + 1:].sum():>10.4f}")
         print(f"     posterior mode {int(np.argmax(probability))} chips: "
               f"P(13) {probability[13]:.4f}, P(14) {probability[14]:.4f}, P(15) {probability[15]:.4f}")
+        print("     read this next to 2a, not instead of it: the two disagree when the file can find")
+        print("     the right count but not the right positions (or the reverse)")
 
         recovered[recording] = (rule, full)
 

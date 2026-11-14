@@ -124,8 +124,11 @@ def self_check():
     first_boundary = 125  # record starts mid-chip, as the real files do
 
     # segmentation must follow each satellite's own code phase, and the segment COUNT changes with
-    # it: a code phase near zero leaves no leading partial segment, giving 8 segments not 9
-    for phase_samples, expected_segments in ((0, 8), (1, 8), (512, 9), (2046, 9), (4091, 9)):
+    # it: a code phase under half a sample leaves no leading partial segment, anything larger does.
+    # The code phase now resolves to about 0.07 sample on known truth, so 1 sample is a real (if
+    # tiny) leading partial rather than being rounded down to nothing as it was when the
+    # sub-sample refinement returned the first grid point of its energy plateau
+    for phase_samples, expected_segments in ((0, 8), (1, 9), (512, 9), (2046, 9), (4091, 9)):
         generator = np.random.default_rng(9)
         code = spreading_code_replica(9, length, lattice, None, -phase_samples / 4)
         signal = 0.278 * code * np.exp(2j * np.pi * doppler_hz * times)
