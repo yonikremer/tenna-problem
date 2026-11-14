@@ -80,15 +80,24 @@ not 1.0 only because the window still contains signal the fitted model leaves be
 Subtracting the noise leaves the twelve satellites at effectively infinite signal-to-noise, and the
 model can then be checked to the last digit:
 
-| model of the signal | leftover power | correlation with the recording |
-| --- | --- | --- |
-| 12 satellites, **nominal** codes | 5.4e-2 | 0.985761 |
-| 12 satellites, **recovered 15-flip codes** | **9.3e-4** | **0.999768** |
+Each model is given the same freedom: per-PRN Doppler and integer delay refined on the noise-free
+signal, and one complex amplitude each.
 
-So the recovered sequence plus the recovered noise reproduce the file to **0.05% of its power**, and
-correlation **0.9998**. On the noise-free signal the chip readout returns **exactly the fifteen rule
-positions for all twelve PRNs**, worst chip deviation 0.095 of the amplitude, and the per-PRN
-amplitude is 0.2774-0.2780 against the declared 0.2780.
+| model of the signal | leftover power | correlation with the recording | per-PRN correlation |
+| --- | --- | --- | --- |
+| 12 satellites, **nominal** codes | 5.39e-2 | 0.985823 | 0.758 |
+| 12 satellites, **recovered 15-flip codes** | **7.24e-4** | **0.999823** | **0.996** |
+
+So the recovered sequence plus the recovered noise reproduce the file to **0.04% of its power**, and
+correlation **0.9998**. The change from the nominal code is **+0.0140** in correlation, a **75-fold**
+drop in leftover power (−18.7 dB). Refining the nominal model's own parameters does not close the gap
+(0.985761 → 0.985823), so it is not a parameter problem: the two model signals differ only on the 180
+flipped chips, and their mutual correlation is **0.97048**, which is `(1023 - 30)/1023 = 0.970674` —
+the signature of fifteen flipped chips in a 1023-chip code.
+
+On the noise-free signal the chip readout returns **exactly the fifteen rule positions for all twelve
+PRNs**, worst chip deviation 0.095 of the amplitude, and the per-PRN amplitude is 0.2774-0.2780
+against the declared 0.2780.
 
 **A correction worth recording.** The 5.4% leftover of the nominal model first looked like a second,
 chip-rate noise term: its autocorrelation at lags 1-4 is 0.748, 0.496, 0.243, 0.007, exactly what
