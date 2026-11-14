@@ -92,7 +92,7 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | axis | result with 12 PRNs at 55 dB-Hz |
 | --- | --- |
 | C/N0 per PRN | exact down to **47 dB-Hz**; at 45 dB-Hz 73-80% of the flips come back |
-| flipped chips per PRN | exact for **3 to 40** of 1023 (4%) |
+| flipped chips per PRN | exact for **3 to 240** of 1023; the shift search fails at 320, detection at 400-500 |
 | PRNs at 52 dB-Hz | exact from **6** PRNs; 2 or 4 PRNs leave 7-13% of the flips missing |
 | record length | **4 ms and longer** exact; 2 ms loses 13-40% of the flips |
 | shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |

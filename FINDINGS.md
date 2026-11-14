@@ -351,13 +351,22 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | axis | result (baseline: 12 PRNs, 55 dB-Hz, 15 chips, 8 ms) |
 | --- | --- |
 | C/N0 per PRN | exact down to 47 dB-Hz; at 45 dB-Hz recall falls to 0.73-0.80 |
-| flipped chips per PRN | exact for 3 to 40; no count tested fails |
+| flipped chips per PRN | exact for 3 to 240 of 1023; at 320 the shift search fails; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
 | PRNs at 52 dB-Hz | exact from 6 PRNs; 2 and 4 PRN cases lose 7-13% of the chips |
 | record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz (100 Hz before the fix below) |
 | independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
+
+The dense-modification limit is the interesting one. Flipping K chips leaves (1023 - 2K)/1023 of the
+nominal correlation, so acquisition itself fades as the modification gets denser: 0.53 at K=240, 0.37
+at 320, 0.22 at 400, 0.02 at 500. Below that, at 320, the shift search is what breaks first, not the
+chip readout: `score_slope` ranks a candidate shift by the mean of the 15 most negative consensus
+values, an extreme-value statistic, and with a third of the chips negative a wrong shift also stacks
+flip signs. The fix would be to rank shifts by the physical held-out gain that the flip count already
+uses; it is left undone because the assignment lives at 15 flips, and the benchmark says so instead of
+pretending the limit is elsewhere.
 
 Two of these are worth reading as physics rather than as bugs. Sensitivity stops where the per-chip
 signal-to-noise stops supporting a sign decision even after the 12-fold combining gain. The 2 ms

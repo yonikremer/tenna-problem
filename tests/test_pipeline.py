@@ -1,6 +1,7 @@
 """End-to-end recovery on the 55 dB-Hz synthetic recording that follows the real rule."""
 
 import csv
+import dataclasses
 from pathlib import Path
 
 import make_shared_55  # type: ignore
@@ -109,6 +110,15 @@ def test_solve_runs_end_to_end_and_writes_every_artifact(shared_55, capsys):
     assert "residual power with recovered codes" in output
     for suffix in ("_acquisition.csv", "_joint_flips.csv", "_solution.json"):
         assert Path(recording.replace(".nc", suffix)).exists()
+
+
+def test_recovery_reports_a_recording_where_nothing_was_detected(shared_55):
+    """A dense modification pushes the nominal-code correlation under the detection threshold."""
+    nothing_detected = dataclasses.replace(shared_55["recovery"].acquisition, detections=())
+    with pytest.raises(SystemExit):
+        pipeline.soft_chip_vectors(nothing_detected)
+    with pytest.raises(SystemExit):
+        pipeline.recover(shared_55["recording"], acquisition=nothing_detected)
 
 
 def test_recover_reports_a_missing_recording(tmp_path):

@@ -28,11 +28,13 @@ import numpy as np
 CODE_LENGTH = 1023
 FLIP_COUNT = 15
 
-# Candidate numbers of flipped chips, starting at zero: if no chip is flipped, or if nothing is
-# shared between the PRNs, the honest answer is a pattern of length zero. A solution with more than
-# a few dozen flipped chips would no longer be a sparse modification, and the held-out score would
-# not recover it either.
-CANDIDATE_COUNTS = tuple(range(0, 41))
+# Candidate numbers of flipped chips, from zero to half the code. Zero belongs in the set: if no chip
+# is flipped, or nothing is shared between the PRNs, that is the honest answer. The search stops at
+# half the code because a pattern of more than 512 flipped chips describes a code closer to its own
+# negation than to itself, which is the same ambiguity as a navigation data bit's sign and cannot be
+# separated from it.
+MAX_FLIP_COUNT = CODE_LENGTH // 2
+CANDIDATE_COUNTS = tuple(range(0, MAX_FLIP_COUNT + 1))
 
 # The fourteen increments of the inferred generator, in chips.
 FIBONACCI = (1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377)
@@ -146,7 +148,13 @@ def align_and_sum(vectors: dict, slope: int) -> np.ndarray:
 
 
 def score_slope(vectors: dict, slope: int, flip_count: int = FLIP_COUNT) -> float:
-    """How sharp the `flip_count` negative chips are after alignment; larger is better."""
+    """How sharp the `flip_count` negative chips are after alignment; larger is better.
+
+    shortcut: this is an extreme-value statistic, so a wrong shift that happens to stack flip signs
+    can outrank the true one once a large fraction of the chips are negative - measured at 320 of
+    1023 flipped chips, where it returns 684 instead of 2. Upgrade to ranking shifts by held-out gain
+    (`count_scores`) if dense modifications ever matter; see BENCHMARK.md.
+    """
     consensus = align_and_sum(vectors, slope)
     ordered = np.sort(consensus)
     return float(-np.mean(ordered[:flip_count]) / (np.std(consensus) + 1e-12))
@@ -180,8 +188,36 @@ def held_out_gain(vectors: dict, slope: int, count: int) -> float:
 
 
 def count_scores(vectors: dict, slope: int, candidates=CANDIDATE_COUNTS) -> dict:
-    """Held-out correlation gain for every candidate flip count."""
-    return {count: held_out_gain(vectors, slope, count) for count in candidates}
+    """Held-out correlation gain for every candidate flip count.
+
+    One sort per left-out PRN is enough for every count at once: the chips are already ordered by the
+    other PRNs' consensus, so a count just takes that many from the front. That keeps a 513-count
+    search as cheap as a 41-count one.
+    """
+    satellites, aligned = aligned_matrix(vectors, slope)
+    total = np.sum(aligned, axis=0)
+    folds = []
+    for index, prn in enumerate(satellites):
+        others = (total - aligned[index]) / max(len(satellites) - 1, 1)
+        order = np.argsort(others)
+        shift = slope * (prn - satellites[0])
+        own = vectors[prn]
+        nominal = float(own.sum())
+        if nominal == 0:
+            continue
+        flipped_contribution = np.cumsum(2.0 * own[(order - shift) % CODE_LENGTH])
+        folds.append((nominal, flipped_contribution))
+    if not folds:
+        return {count: 0.0 for count in candidates}
+
+    scores = {}
+    for count in candidates:
+        gains = []
+        for nominal, flipped_contribution in folds:
+            flipped = nominal - (flipped_contribution[count - 1] if count else 0.0)
+            gains.append(10.0 * np.log10(abs(flipped / nominal) ** 2 + 1e-30))
+        scores[count] = float(np.mean(gains))
+    return scores
 
 
 def choose_count(vectors: dict, slope: int, candidates=CANDIDATE_COUNTS) -> tuple:

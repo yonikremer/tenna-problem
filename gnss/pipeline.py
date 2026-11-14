@@ -102,6 +102,13 @@ def soft_chip_vectors(acquisition) -> tuple:
             length, prn, lattice, detection.doppler_hz, shift, detection.bit_change_period
         )
         coefficients[prn] = np.vdot(units[prn], samples) / length
+    if not units:
+        # Nothing to cancel, nothing to read. Say so, instead of failing inside the arithmetic: a
+        # dense modification can push the nominal-code correlation under the detection threshold.
+        raise SystemExit(
+            f"{acquisition.recording}: no satellites detected, nothing to recover "
+            f"(threshold {acquisition.threshold:.1f})"
+        )
 
     residual = signals.residual(samples, coefficients, units)
     satellites = {}
@@ -118,8 +125,6 @@ def soft_chip_vectors(acquisition) -> tuple:
             amplitude=coefficients[prn],
             vector=np.real(chips.align(whole)),
         )
-    if not satellites:
-        raise SystemExit(f"{acquisition.recording}: no satellites detected, nothing to recover")
     return satellites, residual
 
 

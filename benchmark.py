@@ -177,7 +177,34 @@ def score(scenario: Scenario, truth: Truth, path: str) -> dict:
     started = time.perf_counter()
     search = list(range(1, max(scenario.prns) + 4))  # wider than the truth, so false alarms count
     found = acquisition.acquire(path, search)
-    recovery = pipeline.recover(path, acquisition=found)
+    try:
+        recovery = pipeline.recover(path, acquisition=found)
+    except SystemExit as error:
+        # The library is right to refuse a recording where nothing was detected; the benchmark's job
+        # is to record that as the outcome, not to die with it.
+        return {
+            "scenario": scenario.label,
+            "cn0_dbhz": scenario.cn0_dbhz,
+            "prns": len(scenario.prns),
+            "mode": scenario.mode,
+            "flip_count_true": scenario.flip_count,
+            "flip_count_recovered": -1,
+            "held_out_gain_db": float("nan"),
+            "missed": sorted(set(scenario.prns) - set(found.detected)),
+            "spurious": sorted(set(found.detected) - set(scenario.prns)),
+            "max_doppler_error_hz": float("nan"),
+            "slope_true": truth.slope,
+            "slope_recovered": None,
+            "slope_ok": None,
+            "precision": float("nan"),
+            "recall": float("nan"),
+            "f1": float("nan"),
+            "residual_ratio": float("nan"),
+            "nominal_to_recovered_db": float("nan"),
+            "seconds": time.perf_counter() - started,
+            "verdict": "detection",
+            "detail": str(error),
+        }
     check = verification.verify(found, recovery.rule.flips)
     elapsed = time.perf_counter() - started
 
@@ -245,43 +272,43 @@ def verdict(result: dict) -> str:
 
 SWEEPS = {
     "cn0": [
-        Scenario(label=f"cn0-{cn0:g}-s{seed}", cn0_dbhz=cn0, seed=seed)
+        Scenario(label=f"cn0-{cn0:g}-seed{seed}", cn0_dbhz=cn0, seed=seed)
         for cn0 in (70, 65, 60, 57, 55, 53, 51, 49, 47, 45)
         for seed in (1, 2)
     ],
     "flip_count": [
-        Scenario(label=f"flips-{count}-s{seed}", flip_count=count, seed=seed)
-        for count in (3, 5, 8, 12, 15, 20, 30, 40)
+        Scenario(label=f"flips-{count}-seed{seed}", flip_count=count, seed=seed)
+        for count in (3, 5, 8, 12, 15, 20, 30, 40, 60, 80, 120, 160, 240, 320, 400, 500)
         for seed in (1, 2)
     ],
     "slope": [
-        Scenario(label=f"slope-{slope}-s{seed}", slope=slope, seed=seed)
+        Scenario(label=f"slope-{slope}-seed{seed}", slope=slope, seed=seed)
         for slope in (0, 1, 2, 3, 7, 25)
         for seed in (1, 2)
     ],
     "prns": [
-        Scenario(label=f"prns-{count}-s{seed}", prns=tuple(range(1, count + 1)), cn0_dbhz=52.0, seed=seed)
+        Scenario(label=f"prns-{count}-seed{seed}", prns=tuple(range(1, count + 1)), cn0_dbhz=52.0, seed=seed)
         for count in (2, 4, 6, 8, 10, 12)
         for seed in (1, 2)
     ],
     "duration": [
-        Scenario(label=f"periods-{periods}-s{seed}", code_periods=periods, cn0_dbhz=52.0, seed=seed)
+        Scenario(label=f"periods-{periods}-seed{seed}", code_periods=periods, cn0_dbhz=52.0, seed=seed)
         for periods in (2, 4, 8, 16)
         for seed in (1, 2)
     ],
     "fractional_delay": [
-        Scenario(label=f"delay-{delay}-s{seed}", fractional_delay_samples=delay, seed=seed)
+        Scenario(label=f"delay-{delay}-seed{seed}", fractional_delay_samples=delay, seed=seed)
         for delay in (0.0, 0.25, 0.5, 0.75)
         for seed in (1, 2)
     ],
     "data_bit": [
-        Scenario(label=f"bit-{change}-{cn0:g}-s{seed}", data_bit_change_period=change, cn0_dbhz=cn0, seed=seed)
+        Scenario(label=f"bit-{change}-{cn0:g}-seed{seed}", data_bit_change_period=change, cn0_dbhz=cn0, seed=seed)
         for change in (None, 4)
         for cn0 in (55.0, 52.0)
         for seed in (1, 2)
     ],
     "structure": [
-        Scenario(label=f"{mode}-{flip_count}-s{seed}", mode=mode, flip_count=flip_count, seed=seed)
+        Scenario(label=f"{mode}-{flip_count}-seed{seed}", mode=mode, flip_count=flip_count, seed=seed)
         for mode, flip_count in (("shared", 15), ("independent", 15), ("none", 0))
         for seed in (1, 2, 3)
     ],
@@ -311,7 +338,8 @@ def table_row(result: dict) -> str:
     slope = "n/a" if result["slope_ok"] is None else f"{result['slope_recovered']} {'ok' if result['slope_ok'] else 'WRONG'}"
     return (
         f"| {result['scenario']} | {detected} | {number(result['max_doppler_error_hz'], '{:.2f} Hz')} | {slope} "
-        f"| {result['flip_count_true']}/{result['flip_count_recovered']} "
+        f"| {result['flip_count_true']}/"
+        f"{result['flip_count_recovered'] if result['flip_count_recovered'] >= 0 else 'n/a'} "
         f"| {number(result['precision'])} | {number(result['recall'])} | {number(result['f1'])} "
         f"| {number(result['residual_ratio'], '{:.3f}')} | {result['verdict']} |"
     )
@@ -363,14 +391,30 @@ def summarise(results: dict) -> list:
         failing = [r["flip_count_true"] for r in count_rows if r["verdict"] != "pass"]
         tested = max(r["flip_count_true"] for r in count_rows)
         if failing:
-            lines.append(
-                f"- **How many chips are flipped** stops being resolvable at **K = {min(failing)}** "
-                f"(tested up to {tested})."
+            first = min(
+                (row for row in count_rows if row["verdict"] != "pass"),
+                key=lambda row: row["flip_count_true"],
             )
-        else:
+            worst = max(
+                (row for row in count_rows if row["verdict"] != "pass"),
+                key=lambda row: row["flip_count_true"],
+            )
+            last_exact = max(
+                row["flip_count_true"] for row in count_rows if row["verdict"] == "pass"
+            )
+            detected_there = worst["prns"] - len(worst["missed"])
             lines.append(
-                f"- **How many chips are flipped** is recovered exactly for every count tested, "
-                f"3 to {tested} chips out of 1023."
+                f"- **How many chips are flipped.** Exact up to **K = {last_exact}** of 1023. At "
+                f"K = {first['flip_count_true']} the *shift* search is what fails first: it returns "
+                f"{first['slope_recovered']} instead of {first['slope_true']}. With a third of the "
+                f"chips negative, a wrong shift also stacks flip signs, and the alignment score - an "
+                f"extreme-value statistic over the 15 most negative chips - stops isolating the true "
+                f"shift. At K = {worst['flip_count_true']} only {detected_there} of {worst['prns']} "
+                f"PRNs are detected: a code modified on {2 * worst['flip_count_true']} of its chips "
+                f"keeps {max(1023 - 2 * worst['flip_count_true'], 0)}/1023 of the nominal correlation, "
+                f"so a nominal replica barely sees it. Scoring shifts by held-out gain instead of the "
+                f"extreme-value score would push this limit up; it is not done, because the assignment "
+                f"lives at 15 flips."
             )
 
     prn_rows = results.get("prns")
@@ -466,8 +510,13 @@ def main(argv=None) -> int:
         "",
         "Generated with `python benchmark.py`. Every recording is synthesised from the assignment's "
         "signal model, so the truth is known exactly and every run is scored against it: PRNs found, "
-        "Doppler error, recovered shift, recovered flip set (precision/recall), and the ratio of "
-        "residual power to noise power (1.000 is perfect cancellation).",
+        "Doppler error, recovered shift, recovered flip set (precision/recall), and residual power "
+        "against the generator's noise variance (1.000 is perfect cancellation).",
+        "",
+        "Nothing here reads `gnss_observation.nc` or `gnss_observation2.nc`: these are fresh "
+        "recordings, not the supplied pair. The `seed1`/`seed2` suffix is a noise seed - the same "
+        "scenario generated twice with different Doppler, delay, carrier phase and flip positions, "
+        "so the two rows show run-to-run scatter rather than one lucky draw.",
         "",
         "`verdict` is `pass` only when every PRN was found with no false alarm, the shift is right, "
         "and the recovered flip set matches the truth exactly.",
