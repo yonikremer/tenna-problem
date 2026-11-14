@@ -51,13 +51,45 @@ Three things follow, and they are the file's own statements rather than my infer
 2. **Recording 1 declares 15 flips per PRN.** That corroborates the recovered count independently of
    the estimator, and it is why `987` is reported as unsupported rather than absent: the file itself
    says every PRN carries fifteen.
-3. **The declared model is matched, not fitted.** Declared amplitude 0.2780, fitted mean 0.2679
-   (96.4%); declared noise power 1.0, residual 0.9911. The remaining 3-4% is the alignment residual
-   (0.03-0.10 sample) multiplied by a replica that snaps to whole samples; it costs about 0.3 dB of
-   per-chip signal-to-noise and changes no chip decision.
+3. **The declared model is matched, not fitted.** Declared amplitude 0.2780; measured with the other
+   satellites removed it is **0.2784**, a ratio of 1.001. (Projecting one satellite against the
+   *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not perfectly
+   orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the noise
+   recovered from the seed below is 0.945 plus a 0.054 chip-rate term, which is 1.0.
 
 Recording 1 also states that its `synthetic_truth` is a **prior inference, not verified truth**, which
 is why this report never treats it as ground truth.
+
+## The generator behind recording 1
+
+Recording 1 declares a `random_seed`, so its noise is a deterministic function of that integer.
+`python -m analysis.seed_recovery` finds it:
+
+```
+np.random.default_rng(20261111)                     # PCG64
+draws 0..N        -> I samples                      # N = 32736
+draws N..2N       -> Q samples
+noise = (I + 1j*Q) / sqrt(2)                        # unit complex variance
+```
+
+Evidence: that stream correlates **0.9723** with the recording's noise at offset 0, against 0.0993 for
+the interleaved layout and a maximum of 0.094 over 4096 random offsets (chance). The correlation is
+not 1.0 only because the window still contains the 5% of the signal the fitted model does not
+explain. Subtracting the noise leaves the twelve satellites, whose amplitude then reads 0.2784
+against the declared 0.2780, and whose code phases land on whole samples.
+
+What is left after the noise and the twelve satellites — **5.4%** of the signal power — is a second
+noise term. Its autocorrelation at lags 1-4 is **0.748, 0.496, 0.243, 0.007**, which is what white
+noise sampled at the chip rate and held for four samples gives (simulated: 0.748, 0.496, 0.243, 0.009).
+It is not a satellite: under each recovered carrier it folds to 0.01 of its own power, and acquisition
+finds nothing in it. It is also not the next draws of the same stream — correlation 0.006 at the
+natural offset — so it comes from another generator or another seed.
+
+What is **not** recovered is the parameter draws. The delays are a designed lattice: sorted, their
+circular gaps are 312-367 samples around 4092/12 = 341, and twelve uniform integers would give
+exponential gaps, with all twelve landing within 30 samples of 341 at a probability of about 1e-13.
+The Dopplers and phases are not the consecutive uniforms following the noise block either. So the
+seeded generator supplied the noise; it did not supply the geometry.
 
 That is the main surprise: the two files are not independent random modifications. They are the same
 rule, with one flip missing in the second file.
@@ -614,6 +646,7 @@ residual-power check notices, because the chip signs are still read correctly.
 | `analysis/correctness.py` | split-half transfer, per-chip Bayes factors, count posterior, cross-file transfer |
 | `analysis/chip_anomaly.py` | one chip's reading under code-phase, Doppler and half-record perturbations |
 | `analysis/weakest_chip.py` | Monte Carlo: how low a truly flipped chip reads at a given SNR |
+| `analysis/seed_recovery.py` | find a recording's noise in the stream of its declared `random_seed` |
 | `analysis/data_bit_check.py` | did a navigation bit change inside the recording |
 | `analysis/code_phase_accuracy.py` | code-phase bias and spread against injected truth |
 | `analysis/segment_identity.py` | are the code periods copies |
