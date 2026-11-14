@@ -693,6 +693,28 @@ def summarise(results: dict) -> list:
     return lines
 
 
+def time_summary(results: dict, total_seconds: float) -> list:
+    """Wall-clock cost of each sweep: the price of the evidence above, per run and in total."""
+    lines = [
+        "## Time",
+        "",
+        "One row per sweep. `mean` is the cost of scoring one recording, i.e. the whole chain "
+        "(acquisition, cancellation, chip read-out, rule search, verification), averaged over that "
+        "sweep's runs. Synthesis and scoring are excluded from `mean` but not from `total`.",
+        "",
+        "| sweep | runs | mean seconds | total seconds |",
+        "| --- | --- | --- | --- |",
+    ]
+    for name, rows in results.items():
+        seconds = [row["seconds"] for row in rows]
+        lines.append(
+            f"| {name} | {len(rows)} | {sum(seconds) / len(seconds):.2f} | {sum(seconds):.1f} |"
+        )
+    runs = sum(len(rows) for rows in results.values())
+    lines.append(f"| **all** | {runs} | {total_seconds / max(runs, 1):.2f} | {total_seconds:.0f} |")
+    return lines
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Score the recovery chain on generated recordings and report where it breaks."
@@ -702,11 +724,16 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="BENCHMARK.md", help="markdown report to write")
     arguments = parser.parse_args(argv)
 
+    started = time.perf_counter()
     results = run_sweeps(arguments.seeds, set(arguments.only) if arguments.only else None)
     summary = summarise(results)
+    timing = time_summary(results, time.perf_counter() - started)
 
     print("\n## Where it breaks\n")
     for line in summary:
+        print(line)
+    print()
+    for line in timing:
         print(line)
 
     sections = [
@@ -728,6 +755,8 @@ def main(argv=None) -> int:
         "## Headline",
         "",
         *summary,
+        "",
+        *timing,
         "",
     ]
     for name, rows in results.items():

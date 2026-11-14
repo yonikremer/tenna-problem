@@ -37,13 +37,13 @@ Usage:
 
 import argparse
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from . import alignment, signals
 from .lattice import Lattice, load_recording
-from .signals import carrier, spreading_code_replica, unit_signal
+from .signals import carrier, sample_times, spreading_code_replica, unit_signal
 from .tables import write_acquisition
 
 SPEED_OF_LIGHT_M_S = 299_792_458.0
@@ -113,6 +113,20 @@ class Acquisition:
     fine_step_hz: float
     received_power: float
     noise_variance: float
+    # code-phase shifts measured by single-period alignment, filled on first use; see aligned_shift
+    aligned_shifts: dict = field(default_factory=dict, repr=False, compare=False)
+
+    def aligned_shift(self, satellite: int) -> float:
+        """Code-phase shift of one satellite from single-period alignment, measured once.
+
+        Acquisition, recovery and verification all need this number for the same satellite, and
+        measuring it is the most expensive single-period operation in the chain.
+        """
+        if satellite not in self.aligned_shifts:
+            self.aligned_shifts[satellite] = alignment.aligned_shift(
+                self.samples, satellite, self.lattice, self.detected[satellite].doppler_hz
+            )
+        return self.aligned_shifts[satellite]
 
     @property
     def detected(self) -> dict:
@@ -191,17 +205,42 @@ def coherent_correlation(
     of f Hz does move the chip rate by the same fraction, 1 + f/f_carrier; over this 8 ms
     recording that is a drift of about 0.007 chips, far below the 0.25-chip sample grid,
     so the term is omitted instead of fitted to noise.
+
+    The replica repeats every code period, so the whole-record correlation is the sum of the
+    per-period correlations and its power repeats with them. Correlating period by period then
+    costs period-length transforms instead of whole-record ones (8 x 4096 instead of 1 x 32768),
+    and the code's spectrum is cached instead of transformed on every Doppler candidate. The
+    cache is only used when the replica really is one period repeated; see
+    `signals.code_period_plan`.
     """
     length = len(samples)
-    code = spreading_code_replica(satellite, length, lattice, None, chip_offset)
-    product = samples * np.conj(carrier(length, lattice, doppler_hz))
-    correlation = np.fft.ifft(np.fft.fft(product) * np.conj(np.fft.fft(code)))
-    power = np.abs(correlation) ** 2
+    period = lattice.samples_per_code_period
+    periods = length // period
+    spectrum, _, periodic = signals.code_period_plan(satellite, lattice, chip_offset)
+    if periodic and periods * period == length and periods:
+        # the carrier is split into its drift inside one period and the whole-cycle step that
+        # period p adds, so both factors are short: one period instead of the whole record
+        within = np.exp(-2j * np.pi * doppler_hz * sample_times(period, lattice.sample_rate_hz))
+        across = np.exp(
+            -2j
+            * np.pi
+            * doppler_hz
+            * (np.arange(periods) * period)
+            / lattice.sample_rate_hz
+        )
+        blocks = np.fft.fft(samples.reshape(periods, period) * within, axis=1) * across[:, None]
+        power = np.abs(np.fft.ifft(blocks.sum(axis=0) * spectrum)) ** 2
+        distinct = power
+        periods_offset = 0
+    else:
+        code = spreading_code_replica(satellite, length, lattice, None, chip_offset)
+        product = samples * np.conj(carrier(length, lattice, doppler_hz))
+        correlation = np.fft.ifft(np.fft.fft(product) * np.conj(np.fft.fft(code)))
+        power = np.abs(correlation) ** 2
+        # only samples_per_code_period values are distinct; the rest repeat
+        distinct = power[:period]
+        periods_offset = int(np.argmax(power)) // period
 
-    # The spreading code repeats every code period, so the correlation does too and only
-    # samples_per_code_period of its values are distinct; averaging over all of them would
-    # count each noise cell several times.
-    distinct = power[: lattice.samples_per_code_period]
     peak_index = int(np.argmax(distinct))
     # Sub-sample peak: the correlation peak is wider than one sample, so the three points around
     # it locate the true top. Shifting a replica instead would only move which index is the peak,
@@ -226,8 +265,7 @@ def coherent_correlation(
     # satellites' codes leave behind, unlike the mean. The ratio below and the detection
     # threshold are both expressed against this median, so no conversion factor appears.
     noise_floor = float(np.median(np.delete(distinct, peak_index)))
-    periods_offset = int(np.argmax(power)) // lattice.samples_per_code_period
-    shift = fractional_index + periods_offset * lattice.samples_per_code_period
+    shift = fractional_index + periods_offset * period
     amplitude = float(np.sqrt(peak)) / length
     return peak, noise_floor, float(shift), amplitude
 

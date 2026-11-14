@@ -46,7 +46,7 @@ Step-by-step derivation of the whole method, with the arithmetic behind every th
 
 Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 when a recording
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
-hidden assumption about which PRNs are in use; it costs about 25 s per recording.
+hidden assumption about which PRNs are in use; it costs about 11 s per recording.
 
 ### Checking the answer afterwards
 

@@ -158,8 +158,13 @@ def score_slope(vectors: dict, slope: int, flip_count: int = FLIP_COUNT) -> floa
     (`count_scores`) if dense modifications ever matter; see BENCHMARK.md.
     """
     consensus = align_and_sum(vectors, slope)
-    ordered = np.sort(consensus)
-    return float(-np.mean(ordered[:flip_count]) / (np.std(consensus) + 1e-12))
+    # only the flip_count smallest values are used, so partitioning beats sorting the whole code
+    ordered = (
+        np.sort(consensus)
+        if flip_count >= len(consensus)
+        else np.partition(consensus, flip_count - 1)[:flip_count]
+    )
+    return float(-np.mean(ordered) / (np.std(consensus) + 1e-12))
 
 
 def held_out_gain(vectors: dict, slope: int, count: int) -> float:
