@@ -48,6 +48,20 @@ Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 wh
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
 hidden assumption about which PRNs are in use; it costs about 25 s per recording.
 
+### Checking the answer afterwards
+
+Recording 1 declares a `random_seed`, so its noise can be rebuilt from the file and subtracted, leaving
+the signal with no noise at all. That turns the answer into something testable to the last digit:
+
+```text
+.venv/Scripts/python.exe -m analysis.seed_recovery
+```
+
+The recovered codes then reproduce the recording at correlation **0.9998** and leave **7.2e-4** of its
+power, against **0.9858** and **5.4e-2** for the nominal codes — same Doppler, offset and amplitude
+freedom for both. Recording 2 declares no seed, so this check applies to recording 1 only. Procedure
+and limits: `FINDINGS.md`, "Double-checking the answer against the file's own seed".
+
 ## Layout
 
 | path | role |

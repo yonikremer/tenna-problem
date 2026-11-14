@@ -9,14 +9,14 @@ first section below.
 
 The two recordings use the **same chip-flip rule**:
 
-```
+```text
 PRN s flips chip positions   (base[k] - 2 * (s - 1)) mod 1023
 ```
 
 The base is a 15-position set that follows the cumulative prefix sums of Fibonacci numbers backwards
 from 1020:
 
-```
+```text
 base = { (1020 - sum(Fibonacci[0:k])) mod 1023 : k = 0..14 }
 Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
 ```
@@ -56,66 +56,82 @@ Three things follow, and they are the file's own statements rather than my infer
    *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not perfectly
    orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the seeded
    noise also measures 1.0, and the 0.054 left over by a nominal-code model is the 180 flipped chips,
-   not noise — see "The generator behind recording 1" below.
+   not noise — see "Double-checking the answer against the file's own seed" below.
 
 Recording 1 also states that its `synthetic_truth` is a **prior inference, not verified truth**, which
 is why this report never treats it as ground truth.
 
-## The generator behind recording 1
+## Double-checking the answer against the file's own seed
 
-Recording 1 declares a `random_seed`, so its noise is a deterministic function of that integer.
-`python -m analysis.seed_recovery` finds it:
+This section is not part of the solution. It is a **verification step to run after a solution exists**,
+and it is the strongest end-to-end check in this report because it needs nothing but the file: no
+truth list, no benchmark, no assumption about which chips are flipped.
 
+Recording 1 declares `random_seed = 20261111`, and its noise is "independent CN(0,N0*Fs)". If a
+standard generator produced that noise, the noise is a deterministic function of the integer, so it
+can be reconstructed and subtracted. What is left is the signal with no noise at all — and then any
+candidate answer can be tested against the recording at effectively infinite signal-to-noise instead
+of at 5.4 dB.
+
+### The check, in four steps
+
+```text
+1. noise  = (rng.standard_normal(N) + 1j*rng.standard_normal(N))/sqrt(2), rng = default_rng(20261111)
+2. signal = recording - noise                     # now noise-free
+3. build the 12-satellite model twice: with the nominal code, and with the candidate flipped code
+4. compare each model against the recording
 ```
-np.random.default_rng(20261111)                     # PCG64
-draws 0..N        -> I samples                      # N = 32736
-draws N..2N       -> Q samples
-noise = (I + 1j*Q) / sqrt(2)                        # unit complex variance
-```
 
-Evidence: that stream correlates **0.9723** with the recording's noise at offset 0, against 0.0993 for
-the interleaved layout and a maximum of 0.094 over 4096 random offsets (chance). The correlation is
-not 1.0 only because the window still contains signal the fitted model leaves behind.
+Step 3 is where the *answer* enters, so the comparison is a hypothesis test, not a derivation: the
+seed comes from the file, the flips come from the solution, and the question is whether the solution
+turns the residual into nothing. Both models get identical freedom — per-PRN Doppler and integer delay
+refined on the noise-free signal, one complex amplitude each — so the only difference between them is
+the fifteen chips.
 
-Subtracting the noise leaves the twelve satellites at effectively infinite signal-to-noise, and the
-model can then be checked to the last digit:
-
-Each model is given the same freedom: per-PRN Doppler and integer delay refined on the noise-free
-signal, and one complex amplitude each.
+### What a pass looks like
 
 | model of the signal | leftover power | correlation with the recording | per-PRN correlation |
 | --- | --- | --- | --- |
 | 12 satellites, **nominal** codes | 5.39e-2 | 0.985823 | 0.758 |
 | 12 satellites, **recovered 15-flip codes** | **7.24e-4** | **0.999823** | **0.996** |
 
-So the recovered sequence plus the recovered noise reproduce the file to **0.04% of its power**, and
-correlation **0.9998**. The change from the nominal code is **+0.0140** in correlation, a **75-fold**
-drop in leftover power (−18.7 dB). Refining the nominal model's own parameters does not close the gap
-(0.985761 → 0.985823), so it is not a parameter problem: the two model signals differ only on the 180
-flipped chips, and their mutual correlation is **0.97048**, which is `(1023 - 30)/1023 = 0.970674` —
-the signature of fifteen flipped chips in a 1023-chip code.
+- The recovered codes reproduce the file to **0.04% of its power**, correlation **0.9998**.
+- The change from nominal is **+0.0140** in correlation and a **75-fold** drop in leftover power
+  (−18.7 dB).
+- Refining the nominal model's own parameters does not close that gap (0.985761 → 0.985823), so the
+  improvement is not extra fitting.
+- The two model signals differ only on the 180 flipped chips and correlate with each other at
+  **0.97048**, against the analytic `(1023 - 30)/1023 = 0.970674`. The size of the effect matches the
+  claim it is testing — that is what makes this a check rather than a fit.
+- On the noise-free signal the chip readout returns **exactly the fifteen rule positions for all
+  twelve PRNs**, worst chip deviation 0.095 of the amplitude, and the per-PRN amplitude is
+  0.2774-0.2780 against the declared 0.2780.
 
-On the noise-free signal the chip readout returns **exactly the fifteen rule positions for all twelve
-PRNs**, worst chip deviation 0.095 of the amplitude, and the per-PRN amplitude is 0.2774-0.2780
-against the declared 0.2780.
+Run it with `python -m analysis.seed_recovery`; it scans for the noise in the seeded stream (offset 0,
+`I` then `Q`, scale `1/sqrt(2)`), prints both models side by side, and ends with the chip check. A
+correlation near 0.9998 is a pass; near 0.9858 means the flipped chips are missing from the model.
 
-**A correction worth recording.** The 5.4% leftover of the nominal model first looked like a second,
-chip-rate noise term: its autocorrelation at lags 1-4 is 0.748, 0.496, 0.243, 0.007, exactly what
-white noise sampled at the chip rate and held four samples gives. It is not noise. It is the 180
-flipped chips themselves, each four samples wide, which the nominal replica cannot cancel: the
-predicted power is `180 * (2*0.278)^2 * 32 / 32736 = 0.0544` against 0.05415 measured. Modelling the
-modified code is what removes it.
+### What it cannot do
 
-With the Dopplers refined on the noise-free signal the leftover falls to 7.2e-4 and the correlation
-reaches **0.999824**; the delays stay on whole samples, so the integer-delay claim holds. What
-remains is 0.03 of the amplitude per sample, spread over the chips rather than concentrated on any
-one of them.
+- **Only recording 1.** Recording 2 declares no seed, so this check cannot run on it. That is why the
+  cross-recording transfer and the held-out `987` analysis carry the argument there.
+- **It confirms the signal model, not the rule.** It shows the recovered *positions* explain this file.
+  That the positions follow a Fibonacci rule, and that recording 2 shares it, are separate claims with
+  separate evidence (`analysis/correctness.py`).
+- **The parameter draws are not recovered.** The delays are a designed lattice — sorted, their
+  circular gaps are 312-367 samples around 4092/12 = 341, and twelve uniform integers would give
+  exponential gaps with all twelve landing within 30 samples of 341 at a probability of about 1e-13.
+  The seeded generator supplied the noise, not the geometry. So the check recovers the file, not the
+  script that wrote it.
 
-What is **not** recovered is the parameter draws. The delays are a designed lattice: sorted, their
-circular gaps are 312-367 samples around 4092/12 = 341, and twelve uniform integers would give
-exponential gaps, with all twelve landing within 30 samples of 341 at a probability of about 1e-13.
-The Dopplers and phases are not the consecutive uniforms following the noise block either. So the
-seeded generator supplied the noise; it did not supply the geometry.
+### One false lead, recorded
+
+The 5.4% leftover of the nominal model first looked like a second, chip-rate noise term: its
+autocorrelation at lags 1-4 is 0.748, 0.496, 0.243, 0.007, exactly what white noise sampled at the chip
+rate and held four samples gives. It was the 180 flipped chips, each four samples wide, which the
+nominal replica cannot cancel: `180 * (2*0.278)^2 * 32 / 32736 = 0.0544` predicted against 0.05415
+measured. The lesson is worth keeping: a residual with the right *statistics* for noise was the answer
+itself, and only modelling the modified code revealed it.
 
 That is the main surprise: the two files are not independent random modifications. They are the same
 rule, with one flip missing in the second file.
@@ -133,14 +149,14 @@ Both use 4 samples/chip, 1023 chips, 8 code periods, one constant navigation dat
 
 Base positions found in sample 1:
 
-```
+```text
 34, 411, 644, 788, 877, 932, 966, 987,
 1000, 1008, 1013, 1016, 1018, 1019, 1020
 ```
 
 Per PRN:
 
-```
+```text
 PRN 1:  base
 PRN 2:  base - 2
 PRN 3:  base - 4
@@ -152,7 +168,7 @@ Modulo 1023. So PRN 2 flips bases shifted two chips down; PRN 3 four chips down;
 
 Base positions with measurable support in sample 2:
 
-```
+```text
 34, 411, 644, 788, 877, 932, 966,
 1000, 1008, 1013, 1016, 1018, 1019, 1020
 ```
@@ -173,13 +189,13 @@ chips. Both are fixed. Without that fix, cross-satellite chip coordinates were m
 For satellite `s`, build the nominal unit waveform `u_s[n]` (code × carrier, correct Doppler and code
 phase). Estimate one complex coefficient:
 
-```
+```text
 a_s = (1/N) sum conj(u_s[n]) * x[n]
 ```
 
 Remove the other 11:
 
-```
+```text
 clean_s[n] = x[n] - sum over o != s of a_o * u_o[n]
 ```
 
@@ -192,13 +208,13 @@ own satellite's flips stay.
 Wipe satellite `s`'s carrier, multiply by its nominal code, and average every sample that belongs to
 chip `k`:
 
-```
+```text
 v_s[k] = mean over 8 periods, 4 samples per chip
 ```
 
 After phase alignment:
 
-```
+```text
 normal chip  -> +A_s
 flipped chip -> -A_s
 ```
@@ -210,14 +226,14 @@ flipped chip -> -A_s
 
 Circularly cross-correlate each satellite's soft vector against satellite 1:
 
-```
+```text
 R_s[d] = sum_k v_s[k] * v_1[(k - d) mod 1023]
 d_s = argmax R_s
 ```
 
 On sample 1 the winning shifts are exactly:
 
-```
+```text
 0, -2, -4, -6, ... -22
 ```
 
@@ -230,7 +246,7 @@ i.e. `d_s = -2*(s-1)`. Synthetic controls:
 
 Roll each vector by its shift so all dip patterns line up, then average the 12 vectors:
 
-```
+```text
 C[k] = mean over satellites of aligned v_s[k]
 ```
 
@@ -308,7 +324,7 @@ claims instead of merging them:
 - the flip table contains only the positions this recording supports;
 - `gnss.rule.explain_base` compares that set against the Fibonacci rule and prints, for sample 2:
 
-```
+```text
 the recovered pattern matches that rule on 14 of 15 rule positions
 positions the rule expects but this recording does not support: 987
 the rule itself is not contradicted: a position with no measurable evidence in one
@@ -387,7 +403,7 @@ For sample 2 with K=14, the per-PRN waveform gains are **+0.078 to +0.439 dB**, 
 
 Code level: nominal and 15-flip code agree on 993/1023 chips.
 
-```
+```text
 normalised correlation = 993/1023 = 0.97067
 power ratio             = 0.9422  = -0.259 dB
 ```
