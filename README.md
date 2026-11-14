@@ -123,6 +123,12 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 
 The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Below 6 detected PRNs `solve.py` prints a warning: the combining gain is not there, and the benchmark shows 2-4 PRNs leave 7-13% of the chips missing.
 
+`benchmark.py` uses two noise seeds per grid point, which can only report 0/2, 1/2 or 2/2. To turn
+those edges into a rate, `python breakpoints.py` runs **100 independent recordings per probe** and
+bisects each axis for the value where exact recovery stops, quoting the binomial interval of every
+probe (100 signals resolve a 95% rate to about ±4 points). It also checks its own bracket before
+trusting a bisection. Full report: [`BREAKPOINTS.md`](BREAKPOINTS.md).
+
 ## Third-party code, stated plainly
 
 The C/A spreading codes come from someone else's code, not mine.

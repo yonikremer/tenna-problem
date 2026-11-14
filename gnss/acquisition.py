@@ -41,9 +41,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import alignment, signals
+from . import alignment, correlation, signals
 from .lattice import Lattice, load_recording
-from .signals import carrier, sample_times, spreading_code_replica, unit_signal
+from .signals import carrier, spreading_code_replica, unit_signal
 from .tables import write_acquisition
 
 SPEED_OF_LIGHT_M_S = 299_792_458.0
@@ -174,73 +174,37 @@ def parse_satellite_spec(spec: str) -> list:
 
 
 def coarse_search(samples: np.ndarray, satellites, lattice: Lattice, doppler_grid_hz) -> np.ndarray:
-    """Correlate every satellite against every code phase, for every Doppler candidate."""
-    code_periods = len(samples) // lattice.samples_per_code_period
-    split = samples.reshape(code_periods, lattice.samples_per_code_period)
-    times = np.arange(lattice.samples_per_code_period) / lattice.sample_rate_hz
-    replicas = np.stack(
-        [spreading_code_replica(s, lattice.samples_per_code_period, lattice) for s in satellites]
-    )
-    spectra = np.conj(np.fft.fft(replicas, axis=1))
-    grid = np.empty((len(doppler_grid_hz), len(satellites), lattice.samples_per_code_period))
-    for index, doppler_hz in enumerate(doppler_grid_hz):
-        rotation = np.exp(-2j * np.pi * doppler_hz * times)
-        accumulated = np.zeros((len(satellites), lattice.samples_per_code_period))
-        for period in range(code_periods):
-            spectrum = np.fft.fft(split[period] * rotation)
-            accumulated += np.abs(np.fft.ifft(spectra * spectrum, axis=1)) ** 2
-        grid[index] = accumulated / code_periods
-    return grid
+    """Correlate every satellite against every code phase, for every Doppler candidate.
 
-
-def coherent_correlation(
-    samples: np.ndarray, satellite: int, lattice: Lattice, doppler_hz: float, chip_offset: float = 0.0
-):
-    """Whole-recording coherent correlation.
-
-    Returns the peak power, a median-based noise floor, the sample shift of the peak,
-    and the estimated signal amplitude (peak amplitude divided by the sample count).
-
-    Chip rate is held nominal. Both rates come from one oscillator, so a carrier Doppler
-    of f Hz does move the chip rate by the same fraction, 1 + f/f_carrier; over this 8 ms
-    recording that is a drift of about 0.007 chips, far below the 0.25-chip sample grid,
-    so the term is omitted instead of fitted to noise.
-
-    The replica repeats every code period, so the whole-record correlation is the sum of the
-    per-period correlations and its power repeats with them. Correlating period by period then
-    costs period-length transforms instead of whole-record ones (8 x 4096 instead of 1 x 32768),
-    and the code's spectrum is cached instead of transformed on every Doppler candidate. The
-    cache is only used when the replica really is one period repeated; see
-    `signals.code_period_plan`.
+    The whole grid is returned for the callers that need to look at it - the tests and the analysis
+    scripts. Acquisition itself only asks for the winning Doppler per satellite, because the grid is
+    a quarter of a gigabyte once a search covers two hundred satellites.
     """
-    length = len(samples)
-    period = lattice.samples_per_code_period
-    periods = length // period
-    spectrum, _, periodic = signals.code_period_plan(satellite, lattice, chip_offset)
-    if periodic and periods * period == length and periods:
-        # the carrier is split into its drift inside one period and the whole-cycle step that
-        # period p adds, so both factors are short: one period instead of the whole record
-        within = np.exp(-2j * np.pi * doppler_hz * sample_times(period, lattice.sample_rate_hz))
-        across = np.exp(
-            -2j
-            * np.pi
-            * doppler_hz
-            * (np.arange(periods) * period)
-            / lattice.sample_rate_hz
-        )
-        blocks = np.fft.fft(samples.reshape(periods, period) * within, axis=1) * across[:, None]
-        power = np.abs(np.fft.ifft(blocks.sum(axis=0) * spectrum)) ** 2
-        distinct = power
-        periods_offset = 0
-    else:
-        code = spreading_code_replica(satellite, length, lattice, None, chip_offset)
-        product = samples * np.conj(carrier(length, lattice, doppler_hz))
-        correlation = np.fft.ifft(np.fft.fft(product) * np.conj(np.fft.fft(code)))
-        power = np.abs(correlation) ** 2
-        # only samples_per_code_period values are distinct; the rest repeat
-        distinct = power[:period]
-        periods_offset = int(np.argmax(power)) // period
+    return correlation.coarse_search(samples, satellites, lattice, doppler_grid_hz)
 
+
+def periodic_grid(samples: np.ndarray, satellite: int, lattice: Lattice, chip_offset: float = 0.0) -> bool:
+    """True when the replica is one code period tiled over a whole number of periods.
+
+    Only then is the whole-record correlation the sum of the per-period correlations, and the power
+    of the first period all there is to look at - which is what lets a search work a period at a
+    time. `signals.code_period_plan` checks the tiling instead of assuming it.
+    """
+    period = lattice.samples_per_code_period
+    return (
+        len(samples) > 0
+        and len(samples) % period == 0
+        and signals.code_period_plan(satellite, lattice, chip_offset)[2]
+    )
+
+
+def peak_summary(power: np.ndarray, periods_offset: int, lattice: Lattice, length: int):
+    """Peak, median floor, sub-sample shift and amplitude, from one period of correlation power.
+
+    Split out of `coherent_correlation` so a whole Doppler grid can be summarised from one batched
+    transform without repeating this arithmetic.
+    """
+    distinct = power
     peak_index = int(np.argmax(distinct))
     # Sub-sample peak: the correlation peak is wider than one sample, so the three points around
     # it locate the true top. Shifting a replica instead would only move which index is the peak,
@@ -265,9 +229,44 @@ def coherent_correlation(
     # satellites' codes leave behind, unlike the mean. The ratio below and the detection
     # threshold are both expressed against this median, so no conversion factor appears.
     noise_floor = float(np.median(np.delete(distinct, peak_index)))
-    shift = fractional_index + periods_offset * period
+    shift = fractional_index + periods_offset * lattice.samples_per_code_period
     amplitude = float(np.sqrt(peak)) / length
     return peak, noise_floor, float(shift), amplitude
+
+
+def coherent_correlation(
+    samples: np.ndarray, satellite: int, lattice: Lattice, doppler_hz: float, chip_offset: float = 0.0
+):
+    """Whole-recording coherent correlation.
+
+    Returns the peak power, a median-based noise floor, the sample shift of the peak,
+    and the estimated signal amplitude (peak amplitude divided by the sample count).
+
+    Chip rate is held nominal. Both rates come from one oscillator, so a carrier Doppler
+    of f Hz does move the chip rate by the same fraction, 1 + f/f_carrier; over this 8 ms
+    recording that is a drift of about 0.007 chips, far below the 0.25-chip sample grid,
+    so the term is omitted instead of fitted to noise.
+
+    The replica repeats every code period, so the whole-record correlation is the sum of the
+    per-period correlations and its power repeats with them. Correlating period by period then
+    costs period-length transforms instead of whole-record ones (8 x 4096 instead of 1 x 32768),
+    and the code's spectrum is cached instead of transformed on every Doppler candidate. The
+    cache is only used when the replica really is one period repeated; see
+    `signals.code_period_plan` and `correlation.doppler_powers`.
+    """
+    length = len(samples)
+    if periodic_grid(samples, satellite, lattice, chip_offset):
+        power = correlation.doppler_powers(samples, satellite, lattice, [doppler_hz])[0]
+        return peak_summary(power, 0, lattice, length)
+
+    period = lattice.samples_per_code_period
+    code = spreading_code_replica(satellite, length, lattice, None, chip_offset)
+    product = samples * np.conj(carrier(length, lattice, doppler_hz))
+    correlated = np.fft.ifft(np.fft.fft(product) * np.conj(np.fft.fft(code)))
+    power = np.abs(correlated) ** 2
+    # only samples_per_code_period values are distinct; the rest repeat
+    periods_offset = int(np.argmax(power)) // period
+    return peak_summary(power[:period], periods_offset, lattice, length)
 
 
 def period_prompts(
@@ -357,16 +356,28 @@ def fine_search(
     The peak is then interpolated between grid points, because a peak two grid steps wide carries
     more information than the grid spacing suggests; the interpolated frequency is kept only when
     it actually correlates better.
+
+    Every candidate is a correlation of the same record with the same code at a different carrier,
+    so the whole grid goes to `correlation.doppler_powers` in one call: one batched transform per
+    period instead of one per candidate, on whichever backend is available.
     """
     dopplers = np.arange(
         doppler_center_hz - coarse_step_hz,
         doppler_center_hz + coarse_step_hz + 0.5 * fine_step_hz,
         fine_step_hz,
     )
-    candidates = [
-        (float(doppler_hz),) + coherent_correlation(samples, satellite, lattice, float(doppler_hz))
-        for doppler_hz in dopplers
-    ]
+    length = len(samples)
+    if periodic_grid(samples, satellite, lattice):
+        powers = correlation.doppler_powers(samples, satellite, lattice, dopplers)
+        candidates = [
+            (float(doppler_hz),) + peak_summary(powers[index], 0, lattice, length)
+            for index, doppler_hz in enumerate(dopplers)
+        ]
+    else:
+        candidates = [
+            (float(doppler_hz),) + coherent_correlation(samples, satellite, lattice, float(doppler_hz))
+            for doppler_hz in dopplers
+        ]
     best = max(range(len(candidates)), key=lambda index: candidates[index][1])
 
     if 0 < best < len(candidates) - 1:
@@ -431,13 +442,13 @@ def acquire(
     tested_cells = len(satellites) * lattice.samples_per_code_period * len(doppler_grid_hz)
     threshold = detection_threshold(tested_cells, false_alarm_probability)
 
-    grid = coarse_search(samples, satellites, lattice, doppler_grid_hz)
+    # Only the winning Doppler per satellite is needed here, so the quarter-gigabyte grid is never
+    # built on the host: see `correlation.coarse_doppler_index`.
+    doppler_indices = correlation.coarse_doppler_index(samples, satellites, lattice, doppler_grid_hz)
 
     found = []
     for position, satellite in enumerate(satellites):
-        doppler_index, _ = np.unravel_index(
-            int(np.argmax(grid[:, position, :])), (grid.shape[0], grid.shape[2])
-        )
+        doppler_index = int(doppler_indices[position])
         doppler_hz, peak, noise_floor, shift, amplitude = fine_search(
             samples, satellite, lattice, float(doppler_grid_hz[doppler_index]), coarse_step_hz, fine_step_hz
         )

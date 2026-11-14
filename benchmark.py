@@ -24,7 +24,7 @@ from pathlib import Path
 import netCDF4
 import numpy as np
 
-from gnss import acquisition, pipeline, signals, verification
+from gnss import acquisition, correlation, pipeline, signals, verification
 from gnss.acquisition import satellite_line_of_sight_speed_m_s
 
 SAMPLE_RATE_HZ = 4_092_000.0
@@ -491,9 +491,12 @@ def summarise(results: dict) -> list:
         limit = min((r["cn0_dbhz"] for r in passes), default=float("nan"))
         broken = sorted({r["verdict"] for r in cn0_rows if r["verdict"] != "pass"})
         lines.append(
-            f"- **Sensitivity.** Exact recovery down to about **{limit:g} dB-Hz** per PRN; below that "
-            f"the failures are {', '.join(broken)}. 12 PRNs at 55 dB-Hz is the assignment's case and "
-            f"it passes with margin."
+            f"- **Sensitivity.** Every run passed down to **{limit:g} dB-Hz** per PRN, and below "
+            f"that the failures are {', '.join(broken)}. This is the lowest value that passed all "
+            f"its seeds, not a rate: two seeds can only say 2 of 2. `python breakpoints.py` measures "
+            f"the rate over 100 independent signals per point and finds the 95% edge higher than "
+            f"this - see `BREAKPOINTS.md`. 12 PRNs at 55 dB-Hz is the assignment's case and it "
+            f"passes with margin."
         )
 
     count_rows = results.get("flip_count")
@@ -701,6 +704,10 @@ def time_summary(results: dict, total_seconds: float) -> list:
         "One row per sweep. `mean` is the cost of scoring one recording, i.e. the whole chain "
         "(acquisition, cancellation, chip read-out, rule search, verification), averaged over that "
         "sweep's runs. Synthesis and scoring are excluded from `mean` but not from `total`.",
+        "",
+        f"Backend: `{correlation.describe_backend()}`. `GNSS_BACKEND=cpu` or `GNSS_BACKEND=gpu` "
+        "forces one. The CPU path is the reference the device path is checked against, so the two "
+        "produce the same numbers; only the time changes.",
         "",
         "| sweep | runs | mean seconds | total seconds |",
         "| --- | --- | --- | --- |",
