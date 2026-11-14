@@ -1,8 +1,9 @@
 # Findings
 
 Everything below is measured on the two recordings in this folder and on synthetic data generated
-from the same signal model. No result uses hidden truth from the real files; the real-file claims are
-inferences with the evidence stated.
+from the same signal model. The real-file claims are inferences with the evidence stated; the only
+truth taken from the files is what they declare about themselves in their attributes, quoted in the
+first section below.
 
 ## Headline
 
@@ -21,10 +22,42 @@ Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
 ```
 
 Sample 1 (`data/gnss_observation.nc`) uses all **15** positions. Sample 2 (`data/gnss_observation2.nc`) has
-strong evidence for **14** of them; the remaining one, `987`, has no measurable support in that
-recording. The decoder keeps the positions the data supports and says which rule positions this
-recording cannot confirm: a mathematical pattern is not disproved by one noisy observation, and a
-weak recording is not evidence against it.
+strong evidence for **14** of them and weak positive evidence for the fifteenth, `987` (Bayes factor
+36, a third of the flip depth). The decoder keeps the positions the data supports and says which rule
+position this recording cannot confirm: a mathematical pattern is not disproved by one noisy
+observation, and a weak recording is not evidence against it.
+
+## What the recordings say about themselves
+
+`python -m analysis.dump_attrs` writes every attribute to JSON; the signal model is stated in the file.
+
+| attribute | recording 1 | recording 2 |
+| --- | --- | --- |
+| `description` | "12 synthetic GPS L1 C/A signals, 8 ms, **15 recurrent flips per PRN**, complex AWGN" | superposition of GPS L1 C/A signals, 8 ms |
+| `signal_model` | "Constant nav bit, rectangular chips, constant carrier phase/Doppler, **integer-sample delay**, independent CN(0,N0*Fs) noise" | "ideal rectangular-chip spreading, constant navigation symbol, stable carrier Doppler with coherent code Doppler, additive white Gaussian noise" |
+| `random_seed` | 20261111 | absent |
+| `target_cn0_dbhz_per_prn` | 55.0 | absent |
+| `noise_complex_variance` | 1.0 | absent |
+| `per_prn_signal_power` | 0.077280, i.e. amplitude 0.2780 | absent |
+| `synthetic_truth` | "Prior inferred modification positions from original, not externally verified truth" | absent |
+
+Three things follow, and they are the file's own statements rather than my inferences:
+
+1. **Recording 1 declares an integer-sample delay.** That is a testable prediction about the code
+   phase, which must then be a whole number of samples. Measured: mean distance to a whole sample is
+   **0.049** now, and was **0.247** before the sub-sample refinement was fixed — the fix moved the
+   estimates onto the grid the file declares, without being told to. Recording 2 makes no such claim,
+   and its own fit is noisier (0.093), which is consistent with it being 8.5 dB weaker.
+2. **Recording 1 declares 15 flips per PRN.** That corroborates the recovered count independently of
+   the estimator, and it is why `987` is reported as unsupported rather than absent: the file itself
+   says every PRN carries fifteen.
+3. **The declared model is matched, not fitted.** Declared amplitude 0.2780, fitted mean 0.2679
+   (96.4%); declared noise power 1.0, residual 0.9911. The remaining 3-4% is the alignment residual
+   (0.03-0.10 sample) multiplied by a replica that snaps to whole samples; it costs about 0.3 dB of
+   per-chip signal-to-noise and changes no chip decision.
+
+Recording 1 also states that its `synthetic_truth` is a **prior inference, not verified truth**, which
+is why this report never treats it as ground truth.
 
 That is the main surprise: the two files are not independent random modifications. They are the same
 rule, with one flip missing in the second file.
