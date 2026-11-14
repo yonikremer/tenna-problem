@@ -14,6 +14,7 @@ import numpy as np
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS_DIR)
+DATA_DIR = os.path.join(ROOT, "data", "tests")
 sys.path.insert(0, os.path.join(ROOT, "vendor"))
 sys.path.insert(0, TESTS_DIR)
 import make_synthetic as base  # type: ignore  # noqa: E402
@@ -152,9 +153,10 @@ def main(seed=SEED):
     generator = np.random.default_rng(seed)
     satellites = draw_parameters(generator)
     samples = synthetic_samples(satellites, seed)
-    recording = os.path.join(TESTS_DIR, "synthetic_shared_55.nc")
-    truth = os.path.join(TESTS_DIR, "synthetic_shared_55_truth.csv")
-    codes = os.path.join(TESTS_DIR, "synthetic_shared_55_codes.csv")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    recording = os.path.join(DATA_DIR, "synthetic_shared_55.nc")
+    truth = os.path.join(DATA_DIR, "synthetic_shared_55_truth.csv")
+    codes = os.path.join(DATA_DIR, "synthetic_shared_55_codes.csv")
     write_recording(recording, samples)
     write_truth(truth, codes, satellites)
     print(f"{recording}: {base.LENGTH} samples, 12 PRNs, common rule, {CARRIER_TO_NOISE_DENSITY_DBHZ:.1f} dB-Hz")

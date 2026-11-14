@@ -29,6 +29,10 @@ from . import rule as rule_module
 from .acquisition import Acquisition
 from .lattice import Lattice
 
+# Below this many PRNs the combining gain that makes a single chip decidable is not there: the
+# benchmark's PRN sweep recovers every flip from 6 PRNs at 52 dB-Hz and misses 7-13% at 2 and 4.
+MINIMUM_PRNS = 6
+
 
 @dataclass(frozen=True)
 class Satellite:
@@ -49,6 +53,7 @@ class Recovery:
     satellites: dict
     residual: np.ndarray
     rule: rule_module.Rule
+    warnings: tuple = ()
 
     @property
     def lattice(self) -> Lattice:
@@ -80,6 +85,10 @@ class Recovery:
             f"strongest rejected chip {strongest:+.2f} sigma",
             f"base pattern: {' '.join(str(chip) for chip in sorted(self.rule.base))}",
         ]
+
+    def describe_warnings(self) -> list:
+        """Anything a reader must know before trusting the rule above."""
+        return [f"warning: {message}" for message in self.warnings]
 
     def describe_flips(self) -> list:
         return [
@@ -134,9 +143,17 @@ def recover(recording: str, satellites=None, acquisition=None) -> Recovery:
         acquisition = acquisition_module.acquire(recording, satellites)
     per_satellite, residual = soft_chip_vectors(acquisition)
     vectors = {prn: satellite.vector for prn, satellite in per_satellite.items()}
+    rule = rule_module.recover_rule(vectors)
+    warnings = []
+    if len(per_satellite) < MINIMUM_PRNS:
+        warnings.append(
+            f"only {len(per_satellite)} PRNs detected; fewer than {MINIMUM_PRNS} does not decide every "
+            f"chip (see the PRN sweep in BENCHMARK.md), so treat the rule as provisional"
+        )
     return Recovery(
         acquisition=acquisition,
         satellites=per_satellite,
         residual=residual,
-        rule=rule_module.recover_rule(vectors),
+        rule=rule,
+        warnings=tuple(warnings),
     )

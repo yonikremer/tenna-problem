@@ -1,5 +1,5 @@
 {
-  "recording": "gnss_observation.nc",
+  "recording": "C:\\Users\\yonik\\OneDrive\\Desktop\\tenna-problem\\tests\\synthetic_shared_55.nc",
   "sampling": {
     "sample_rate_hz": 4092000.0,
     "centre_frequency_hz": 1575420000.0,
@@ -24,119 +24,119 @@
   ],
   "acquisition": [
     {
-      "satellite": 7,
-      "doppler_hz": 874.97,
-      "doppler_uncertainty_hz": 1.44,
-      "code_phase_in_chips": 521.998,
-      "peak_to_floor_ratio": 1930.1,
-      "carrier_to_noise_density_dbhz": 54.6,
-      "detected": true
-    },
-    {
       "satellite": 11,
-      "doppler_hz": -1099.59,
-      "doppler_uncertainty_hz": 1.43,
-      "code_phase_in_chips": 854.246,
-      "peak_to_floor_ratio": 1647.3,
-      "carrier_to_noise_density_dbhz": 54.7,
-      "detected": true
-    },
-    {
-      "satellite": 2,
-      "doppler_hz": -2113.79,
-      "doppler_uncertainty_hz": 1.45,
-      "code_phase_in_chips": 109.243,
-      "peak_to_floor_ratio": 1615.5,
-      "carrier_to_noise_density_dbhz": 54.6,
-      "detected": true
-    },
-    {
-      "satellite": 4,
-      "doppler_hz": -935.78,
-      "doppler_uncertainty_hz": 1.44,
-      "code_phase_in_chips": 274.246,
-      "peak_to_floor_ratio": 1612.7,
-      "carrier_to_noise_density_dbhz": 54.6,
-      "detected": true
-    },
-    {
-      "satellite": 6,
-      "doppler_hz": 270.98,
+      "doppler_hz": -2025.36,
       "doppler_uncertainty_hz": 1.92,
-      "code_phase_in_chips": 438.0,
-      "peak_to_floor_ratio": 1558.1,
-      "carrier_to_noise_density_dbhz": 54.9,
-      "detected": true
-    },
-    {
-      "satellite": 5,
-      "doppler_hz": -347.34,
-      "doppler_uncertainty_hz": 1.93,
-      "code_phase_in_chips": 351.258,
-      "peak_to_floor_ratio": 1537.0,
-      "carrier_to_noise_density_dbhz": 54.4,
+      "code_phase_in_chips": 477.0,
+      "peak_to_floor_ratio": 1783.2,
+      "carrier_to_noise_density_dbhz": 54.6,
       "detected": true
     },
     {
       "satellite": 1,
-      "doppler_hz": -2703.56,
-      "doppler_uncertainty_hz": 1.45,
-      "code_phase_in_chips": 31.243,
-      "peak_to_floor_ratio": 1501.3,
-      "carrier_to_noise_density_dbhz": 54.5,
-      "detected": true
-    },
-    {
-      "satellite": 3,
-      "doppler_hz": -1530.33,
-      "doppler_uncertainty_hz": 1.94,
-      "code_phase_in_chips": 188.251,
-      "peak_to_floor_ratio": 1498.3,
-      "carrier_to_noise_density_dbhz": 54.5,
-      "detected": true
-    },
-    {
-      "satellite": 8,
-      "doppler_hz": 1440.86,
-      "doppler_uncertainty_hz": 1.99,
-      "code_phase_in_chips": 604.001,
-      "peak_to_floor_ratio": 1439.9,
-      "carrier_to_noise_density_dbhz": 54.6,
-      "detected": true
-    },
-    {
-      "satellite": 9,
-      "doppler_hz": 2053.38,
-      "doppler_uncertainty_hz": 1.46,
-      "code_phase_in_chips": 686.997,
-      "peak_to_floor_ratio": 1434.0,
+      "doppler_hz": -1748.44,
+      "doppler_uncertainty_hz": 1.95,
+      "code_phase_in_chips": 924.002,
+      "peak_to_floor_ratio": 1733.2,
       "carrier_to_noise_density_dbhz": 54.5,
       "detected": true
     },
     {
       "satellite": 12,
-      "doppler_hz": 1114.86,
-      "doppler_uncertainty_hz": 1.97,
-      "code_phase_in_chips": 946.008,
-      "peak_to_floor_ratio": 1389.2,
+      "doppler_hz": -2284.88,
+      "doppler_uncertainty_hz": 1.44,
+      "code_phase_in_chips": 261.243,
+      "peak_to_floor_ratio": 1635.3,
+      "carrier_to_noise_density_dbhz": 54.7,
+      "detected": true
+    },
+    {
+      "satellite": 2,
+      "doppler_hz": -2213.74,
+      "doppler_uncertainty_hz": 1.43,
+      "code_phase_in_chips": 16.493,
+      "peak_to_floor_ratio": 1617.8,
+      "carrier_to_noise_density_dbhz": 54.7,
+      "detected": true
+    },
+    {
+      "satellite": 8,
+      "doppler_hz": 1832.94,
+      "doppler_uncertainty_hz": 2.11,
+      "code_phase_in_chips": 136.251,
+      "peak_to_floor_ratio": 1570.4,
       "carrier_to_noise_density_dbhz": 54.3,
       "detected": true
     },
     {
+      "satellite": 4,
+      "doppler_hz": -2565.35,
+      "doppler_uncertainty_hz": 1.96,
+      "code_phase_in_chips": 347.003,
+      "peak_to_floor_ratio": 1472.8,
+      "carrier_to_noise_density_dbhz": 54.5,
+      "detected": true
+    },
+    {
+      "satellite": 5,
+      "doppler_hz": 3352.87,
+      "doppler_uncertainty_hz": 1.9,
+      "code_phase_in_chips": 796.75,
+      "peak_to_floor_ratio": 1432.9,
+      "carrier_to_noise_density_dbhz": 54.8,
+      "detected": true
+    },
+    {
+      "satellite": 9,
+      "doppler_hz": 3026.13,
+      "doppler_uncertainty_hz": 1.94,
+      "code_phase_in_chips": 778.252,
+      "peak_to_floor_ratio": 1412.3,
+      "carrier_to_noise_density_dbhz": 54.3,
+      "detected": true
+    },
+    {
+      "satellite": 7,
+      "doppler_hz": 2410.21,
+      "doppler_uncertainty_hz": 1.92,
+      "code_phase_in_chips": 807.503,
+      "peak_to_floor_ratio": 1298.9,
+      "carrier_to_noise_density_dbhz": 54.4,
+      "detected": true
+    },
+    {
+      "satellite": 3,
+      "doppler_hz": 2356.59,
+      "doppler_uncertainty_hz": 1.41,
+      "code_phase_in_chips": 691.497,
+      "peak_to_floor_ratio": 1232.5,
+      "carrier_to_noise_density_dbhz": 54.8,
+      "detected": true
+    },
+    {
+      "satellite": 6,
+      "doppler_hz": 1469.84,
+      "doppler_uncertainty_hz": 1.44,
+      "code_phase_in_chips": 307.744,
+      "peak_to_floor_ratio": 1205.0,
+      "carrier_to_noise_density_dbhz": 54.7,
+      "detected": true
+    },
+    {
       "satellite": 10,
-      "doppler_hz": 2653.96,
-      "doppler_uncertainty_hz": 1.53,
-      "code_phase_in_chips": 770.996,
-      "peak_to_floor_ratio": 1259.9,
-      "carrier_to_noise_density_dbhz": 54.1,
+      "doppler_hz": 328.92,
+      "doppler_uncertainty_hz": 1.45,
+      "code_phase_in_chips": 120.998,
+      "peak_to_floor_ratio": 1174.3,
+      "carrier_to_noise_density_dbhz": 54.6,
       "detected": true
     }
   ],
   "rule": {
     "slope_chips_per_prn": 2,
-    "alignment_score": 2.9879,
+    "alignment_score": 3.2994,
     "flipped_chips_per_prn": 15,
-    "held_out_gain_db": 0.1963,
+    "held_out_gain_db": 0.2206,
     "base_pattern": [
       34,
       411,
@@ -402,24 +402,24 @@
     "positions_not_in_the_rule": []
   },
   "evidence": {
-    "noise_variance": 1.051053,
-    "nominal_residual_power": 1.042082,
-    "recovered_residual_power": 0.991111,
-    "residual_gain_db": 0.2178,
-    "explained_fraction": 0.482046,
+    "noise_variance": 1.038805,
+    "nominal_residual_power": 1.051011,
+    "recovered_residual_power": 0.997269,
+    "residual_gain_db": 0.2279,
+    "explained_fraction": 0.484693,
     "per_prn_gain_db": {
-      "1": 0.2162,
-      "2": 0.2469,
-      "3": 0.2094,
-      "4": 0.1876,
-      "5": 0.2723,
-      "6": 0.2394,
-      "7": 0.2323,
-      "8": 0.2689,
-      "9": 0.3378,
-      "10": 0.2575,
-      "11": 0.2435,
-      "12": 0.2778
+      "1": 0.2259,
+      "2": 0.1694,
+      "3": 0.2056,
+      "4": 0.1455,
+      "5": 0.2416,
+      "6": 0.2331,
+      "7": 0.2682,
+      "8": 0.2481,
+      "9": 0.3288,
+      "10": 0.3144,
+      "11": 0.2813,
+      "12": 0.2407
     }
   }
 }

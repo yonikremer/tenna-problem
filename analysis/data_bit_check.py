@@ -37,7 +37,7 @@ from gnss.lattice import load_recording
 from gnss.tables import read_detections
 
 FALSE_ALARM = 1e-3
-DEFAULT_RECORDINGS = ("gnss_observation.nc", "gnss_observation2.nc")
+DEFAULT_RECORDINGS = ("data/gnss_observation.nc", "data/gnss_observation2.nc")
 
 
 def coherent_z(amplitudes, counts, sample_noise, boundary=None):

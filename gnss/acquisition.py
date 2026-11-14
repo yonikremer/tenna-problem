@@ -32,7 +32,7 @@ satellites' spreading codes leak into the correlation and a mean floor would be
 biased upward by their cross-correlation spikes.
 
 Usage:
-  python -m gnss.acquisition gnss_observation.nc [--satellites 1-32]
+  python -m gnss.acquisition data/gnss_observation.nc [--satellites 1-32]
 """
 
 import argparse
@@ -648,6 +648,6 @@ def self_check(lattice: Lattice):
 
 
 if __name__ == "__main__":
-    _, _, check_lattice = load_recording(sys.argv[1] if len(sys.argv) > 1 else "gnss_observation.nc")
+    _, _, check_lattice = load_recording(sys.argv[1] if len(sys.argv) > 1 else "data/gnss_observation.nc")
     self_check(check_lattice)
     main()

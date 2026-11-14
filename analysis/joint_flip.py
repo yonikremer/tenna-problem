@@ -29,7 +29,7 @@ from analysis import greedy_flip as greedy
 from gnss.lattice import load_recording
 from gnss.rule import FLIP_COUNT
 
-DEFAULT_RECORDINGS = ("gnss_observation.nc", "gnss_observation2.nc")
+DEFAULT_RECORDINGS = ("data/gnss_observation.nc", "data/gnss_observation2.nc")
 
 
 def prepared(recording):

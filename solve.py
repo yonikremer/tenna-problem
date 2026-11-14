@@ -2,9 +2,9 @@
 
 One command, one answer:
 
-    python solve.py                          # both supplied recordings
-    python solve.py gnss_observation.nc      # one recording
-    python solve.py my.nc --satellites 1-32  # narrower search, faster
+    python solve.py                              # both supplied recordings
+    python solve.py data/gnss_observation.nc      # one recording
+    python solve.py my.nc --satellites 1-32      # narrower search, faster
 
 For each recording it runs the full chain, using the package modules for every step:
 
@@ -67,6 +67,7 @@ def print_report(recording: str, found, recovery, pattern, check) -> list:
     lines.append(f"recovered from {len(recovery.satellites)} PRNs, "
                  f"{found.lattice.code_length_in_chips} chips each")
     lines.extend(recovery.describe_rule())
+    lines.extend(recovery.describe_warnings())
     lines.append("")
     lines.append("the mathematical structure behind the base pattern")
     lines.extend(f"  {line}" for line in pattern.describe())
@@ -145,7 +146,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "recordings",
         nargs="*",
-        default=["gnss_observation.nc", "gnss_observation2.nc"],
+        default=["data/gnss_observation.nc", "data/gnss_observation2.nc"],
         help="NetCDF recordings to solve (default: the two supplied files)",
     )
     parser.add_argument(

@@ -1,0 +1,46 @@
+{
+  "file": "C:\\Users\\yonik\\OneDrive\\Desktop\\tenna-problem\\tests\\synthetic_l1.nc",
+  "file_format": "NETCDF3_64BIT_OFFSET",
+  "data_model": "NETCDF3_64BIT_OFFSET",
+  "dimensions": {
+    "sample": 32736
+  },
+  "global_attributes": {
+    "title": "Synthetic composite GPS L1 C/A, truth saved beside the file",
+    "description": "12 synthetic GPS L1 C/A signals, 8 ms, 15 modified chips per code, complex AWGN",
+    "sample_rate_hz": 4092000.0,
+    "center_frequency_hz": 1575420000.0,
+    "nominal_chip_rate_hz": 1023000.0,
+    "nominal_code_length_chips": 1023,
+    "observation_duration_seconds": 0.008,
+    "target_cn0_dbhz_per_prn": 75.0,
+    "per_prn_amplitude_per_sample": 0.278,
+    "noise_complex_variance": 0.01,
+    "noise_sigma_per_real_dimension": 0.07071067811865475,
+    "random_seed": 20261113,
+    "synthetic_truth": "Exact generator parameters in synthetic_l1_truth.csv and synthetic_l1_codes.csv",
+    "signal_model": "Constant nav bit, rectangular chips, constant carrier phase/Doppler, integer-sample delay, independent CN(0,N0) noise"
+  },
+  "variables": {
+    "i": {
+      "dtype": "float32",
+      "dimensions": [
+        "sample"
+      ],
+      "shape": [
+        32736
+      ],
+      "attributes": {}
+    },
+    "q": {
+      "dtype": "float32",
+      "dimensions": [
+        "sample"
+      ],
+      "shape": [
+        32736
+      ],
+      "attributes": {}
+    }
+  }
+}

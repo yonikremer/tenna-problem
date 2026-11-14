@@ -20,7 +20,7 @@ base = { (1020 - sum(Fibonacci[0:k])) mod 1023 : k = 0..14 }
 Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
 ```
 
-Sample 1 (`gnss_observation.nc`) uses all **15** positions. Sample 2 (`gnss_observation2.nc`) has
+Sample 1 (`data/gnss_observation.nc`) uses all **15** positions. Sample 2 (`data/gnss_observation2.nc`) has
 strong evidence for **14** of them; the remaining one, `987`, has no measurable support in that
 recording. The decoder keeps the positions the data supports and says which rule positions this
 recording cannot confirm: a mathematical pattern is not disproved by one noisy observation, and a
@@ -33,8 +33,8 @@ rule, with one flip missing in the second file.
 
 | file | samples | per-PRN amplitude | alignment | flips |
 | --- | --- | --- | --- | --- |
-| `gnss_observation.nc` | 32736, 8 ms at 4.092 MHz | ~0.28 | slope 2 | 15 |
-| `gnss_observation2.nc` | 32736, 8 ms at 4.092 MHz | ~0.12–0.15 | slope 2 | 15 by rule; 14 with evidence |
+| `data/gnss_observation.nc` | 32736, 8 ms at 4.092 MHz | ~0.28 | slope 2 | 15 |
+| `data/gnss_observation2.nc` | 32736, 8 ms at 4.092 MHz | ~0.12–0.15 | slope 2 | 15 by rule; 14 with evidence |
 
 Both use 4 samples/chip, 1023 chips, 8 code periods, one constant navigation data bit.
 
@@ -185,8 +185,8 @@ Shipped estimator, computed from the same soft chip vectors the decoder uses:
 
 | recording | best K | held-out gain | K-1 | K+1 |
 | --- | --- | --- | --- | --- |
-| `gnss_observation.nc` | **15** | +0.196 dB | +0.180 dB | +0.186 dB |
-| `gnss_observation2.nc` | **13** | +0.197 dB | +0.173 dB | +0.193 dB |
+| `data/gnss_observation.nc` | **15** | +0.196 dB | +0.180 dB | +0.186 dB |
+| `data/gnss_observation2.nc` | **13** | +0.197 dB | +0.173 dB | +0.193 dB |
 
 Sample 1 peaks at 15 with a clear margin on both sides. Sample 2 peaks at 13, and 14 is only 0.004 dB
 behind, which is inside the noise: **13-14 is the honest range for that recording**, and 15 is not
@@ -356,17 +356,38 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
+| Doppler | exact at 0 Hz, within +-2 Hz and within +-20 Hz; found to about +-5.5 kHz, nothing at +-5.8 kHz |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz (100 Hz before the fix below) |
 | independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
 
-The dense-modification limit is the interesting one. Flipping K chips leaves (1023 - 2K)/1023 of the
-nominal correlation, so acquisition itself fades as the modification gets denser: 0.53 at K=240, 0.37
-at 320, 0.22 at 400, 0.02 at 500. Below that, at 320, the shift search is what breaks first, not the
-chip readout: `score_slope` ranks a candidate shift by the mean of the 15 most negative consensus
-values, an extreme-value statistic, and with a third of the chips negative a wrong shift also stacks
-flip signs. The fix would be to rank shifts by the physical held-out gain that the flip count already
-uses; it is left undone because the assignment lives at 15 flips, and the benchmark says so instead of
-pretending the limit is elsewhere.
+The Doppler questions are all answered by measurement, and two of the three fears are unfounded.
+With every PRN at 0 Hz, or all twelve within +-2 Hz, or within +-20 Hz, recovery is exact: different
+spreading codes stay orthogonal at identical Doppler, and cancellation removes what they do not share.
+Large Doppler is not an algorithmic limit but a search-span one. The span is +-5175 Hz, derived from
+the satellite's line-of-sight speed plus a 200 km/h receiver; the coarse grid covers +-5000 Hz and the
+fine search adds +-500 Hz, so signals at +-5150 Hz and even +-5500 Hz are found (12/12) while +-5600 Hz
+is 11/12 and +-5800 Hz is 0/12. Beyond the span the method does not fail gracefully, it fails cleanly:
+nothing is detected, and `--max-speed-km-h` is the knob that widens the span.
+
+Widening it works. With the span asserted wide enough, offsets of +-6, +-10, +-15, +-20 and +-30 kHz
+all come back 12/12 detected, 15/15 chips, shift 2, Doppler error 1.4-3.1 Hz - the same accuracy as
+the nominal case. The price is search time (2.2 s to 2.9 s per 15-PRN recording, since the coarse grid
+grows with the span) and a slightly higher detection threshold (40.2 to 42.8 peak-to-floor, which is
+log2 of the cell count, as the false-alarm design predicts). What a wide span means physically is worth
+saying: a ground receiver cannot see +-30 kHz of satellite Doppler, so a real recording with that much
+offset is showing a receiver clock error or a non-terrestrial platform. The search does not care which;
+it only has to be told how far to look.
+
+The dense-modification limit is the interesting one, and it is a soft edge rather than a threshold.
+Over 6 seeds per count, passes are 0/6 at 236 chips, 4/6 at 240, 0/6 at 244, 0/6 at 248, 2/6 at 252,
+0/6 at 256 and 1/6 at 264: non-monotonic, because which draw wins depends on where the random base
+lands, not on K alone. What collapses is the shift margin - 0.15 to 0.25 when the shift is right, 0.001
+to 0.137 when it is wrong, overlapping populations. The wrong answers are 343 and 684, about 1023/3 and
+2*1023/3, where PRN rolls coincide, so the true shift of 2 stops being the unique winner. Above that,
+detection fades too: flipping K chips leaves (1023 - 2K)/1023 of the nominal correlation, 0.37 at
+K=320 and 0.02 at K=500, so a nominal replica barely sees the code. Ranking shifts by the physical
+held-out gain that the flip count already uses would push the edge up; it is left undone because the
+assignment lives at 15 flips, and the benchmark says so instead of pretending the limit is elsewhere.
 
 Two of these are worth reading as physics rather than as bugs. Sensitivity stops where the per-chip
 signal-to-noise stops supporting a sign decision even after the 12-fold combining gain. The 2 ms
@@ -388,7 +409,7 @@ residual-power check notices, because the chip signs are still read correctly.
   `base + 2*(s-1)`; the slope magnitude is the same.
 - The Fibonacci interpretation is an observation about the base positions, not proof of the
   generator's intent.
-- `gnss_observation2.nc` is too weak for pairwise shift search; the slope search is used instead.
+- `data/gnss_observation2.nc` is too weak for pairwise shift search; the slope search is used instead.
 - Chip-level results depend on the measured Doppler and code alignment. Acquisition errors reduce the
   margin.
 

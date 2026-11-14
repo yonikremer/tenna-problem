@@ -24,6 +24,7 @@ import numpy as np
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS_DIR)
+DATA_DIR = os.path.join(ROOT, "data", "tests")
 sys.path.insert(0, os.path.join(ROOT, "vendor"))
 import gnsstools.gps.ca as ca  # type: ignore  # noqa: E402
 
@@ -196,9 +197,10 @@ def main(seed=SEED):
     satellites = draw_parameters(generator)
     samples = synthetic_samples(satellites, seed)
 
-    recording = os.path.join(TESTS_DIR, "synthetic_l1.nc")
-    truth = os.path.join(TESTS_DIR, "synthetic_l1_truth.csv")
-    codes = os.path.join(TESTS_DIR, "synthetic_l1_codes.csv")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    recording = os.path.join(DATA_DIR, "synthetic_l1.nc")
+    truth = os.path.join(DATA_DIR, "synthetic_l1_truth.csv")
+    codes = os.path.join(DATA_DIR, "synthetic_l1_codes.csv")
     write_recording(recording, samples)
     write_truth(truth, codes, satellites)
 

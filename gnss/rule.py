@@ -151,8 +151,10 @@ def score_slope(vectors: dict, slope: int, flip_count: int = FLIP_COUNT) -> floa
     """How sharp the `flip_count` negative chips are after alignment; larger is better.
 
     shortcut: this is an extreme-value statistic, so a wrong shift that happens to stack flip signs
-    can outrank the true one once a large fraction of the chips are negative - measured at 320 of
-    1023 flipped chips, where it returns 684 instead of 2. Upgrade to ranking shifts by held-out gain
+    can outrank the true one once a large fraction of the chips are negative. Measured onset: 3 of 4
+    runs still exact at 240 flipped chips of 1023, none of 4 at 244, and the wrong answer is 343 or
+    684 - about 1023/3 and 2*1023/3, where the PRN rolls coincide and a dense random mask's own
+    autocorrelation competes with the true shift of 2. Upgrade to ranking shifts by held-out gain
     (`count_scores`) if dense modifications ever matter; see BENCHMARK.md.
     """
     consensus = align_and_sum(vectors, slope)
@@ -238,6 +240,9 @@ class Rule:
     consensus: np.ndarray
     flips: dict
     count_scores: dict
+    # how far the winning shift score is ahead of the best rival, in the same units; the recovery is
+    # only trustworthy while this stays well above zero
+    margin: float = 0.0
 
     @property
     def first_prn(self) -> int:
@@ -276,11 +281,10 @@ class Rule:
 def recover_rule(vectors: dict) -> Rule:
     """Best slope, best supported flip count, and each PRN's flip positions."""
     satellites = sorted(vectors)
-    best_slope, best_score = 0, -np.inf
-    for slope in range(CODE_LENGTH):
-        score = score_slope(vectors, slope)
-        if score > best_score:
-            best_slope, best_score = slope, score
+    slope_scores = np.array([score_slope(vectors, slope) for slope in range(CODE_LENGTH)])
+    best_slope = int(np.argmax(slope_scores))
+    best_score = float(slope_scores[best_slope])
+    runner_up = float(np.max(np.delete(slope_scores, best_slope)))
 
     count, scores = choose_count(vectors, best_slope)
     consensus = align_and_sum(vectors, best_slope)
@@ -297,4 +301,5 @@ def recover_rule(vectors: dict) -> Rule:
         consensus=consensus,
         flips=flips,
         count_scores=scores,
+        margin=best_score - runner_up,
     )

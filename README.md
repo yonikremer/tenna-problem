@@ -25,22 +25,24 @@ base = 34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
 Fifteen positions, two chips apart per PRN index. The first recording supports all fifteen; the
 second supports fourteen of them and has no measurable evidence for chip `987`, which the report
 states instead of hiding. Full reasoning and measured evidence: [`FINDINGS.md`](FINDINGS.md).
+Step-by-step derivation of the whole method, with the arithmetic behind every threshold:
+[`SOLUTION.md`](SOLUTION.md).
 
 ## Run it
 
 ```text
 .venv/Scripts/python.exe solve.py                        # both supplied recordings
-.venv/Scripts/python.exe solve.py gnss_observation.nc     # one recording
+.venv/Scripts/python.exe solve.py data/gnss_observation.nc  # one recording
 .venv/Scripts/python.exe solve.py my.nc --satellites 1-32 # narrower, faster search
 ```
 
-`solve.py` runs the whole chain and writes three files next to each recording:
+`solve.py` runs the whole chain and writes three files next to each recording, i.e. into `data/`:
 
 | file | content |
 | --- | --- |
-| `<name>_acquisition.csv` | every detected PRN: Doppler, Doppler uncertainty, code phase, C/N0 |
-| `<name>_joint_flips.csv` | one row per recovered flipped chip: PRN, shift, chip index |
-| `<name>_solution.json`  | the same answer as one machine-readable object |
+| `data/<name>_acquisition.csv` | every searched PRN: Doppler, Doppler uncertainty, code phase, C/N0 |
+| `data/<name>_joint_flips.csv` | one row per recovered flipped chip: PRN, shift, chip index |
+| `data/<name>_solution.json` | the same answer as one machine-readable object |
 
 Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 when a recording
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
@@ -50,7 +52,9 @@ hidden assumption about which PRNs are in use; it costs about 25 s per recording
 
 | path | role |
 | --- | --- |
+| `SOLUTION.md` | the whole method, step by step, with the arithmetic and the measured numbers |
 | `solve.py` | end-to-end entry point: acquisition → cancellation → chip readout → rule → evidence |
+| `data/` | the recordings, plus every artifact made from them (`data/tests/`, `data/benchmark/` are generated) |
 | `gnss/lattice.py` | sampling grid derived from the recording's own metadata |
 | `gnss/signals.py` | spreading-code replicas, carriers, and the per-satellite linear fit |
 | `gnss/alignment.py` | code phase of one satellite, coarse then sub-sample |
@@ -79,8 +83,8 @@ known-answer self-checks inside the modules. Coverage of `gnss/` is held at 90% 
 A single module runs on its own as well:
 
 ```text
-.venv/Scripts/python.exe -m gnss.acquisition gnss_observation.nc --satellites 1-12
-.venv/Scripts/python.exe -m analysis.chip_extraction gnss_observation.nc
+.venv/Scripts/python.exe -m gnss.acquisition data/gnss_observation.nc --satellites 1-12
+.venv/Scripts/python.exe -m analysis.chip_extraction data/gnss_observation.nc
 ```
 
 ## Where it works and where it breaks
@@ -92,15 +96,17 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | axis | result with 12 PRNs at 55 dB-Hz |
 | --- | --- |
 | C/N0 per PRN | exact down to **47 dB-Hz**; at 45 dB-Hz 73-80% of the flips come back |
-| flipped chips per PRN | exact for **3 to 240** of 1023; the shift search fails at 320, detection at 400-500 |
+| flipped chips per PRN | exact for **3 to 240** of 1023 (one run at 200 came back a chip short); shift search fails at 320, detection at 400, nothing at 500 |
 | PRNs at 52 dB-Hz | exact from **6** PRNs; 2 or 4 PRNs leave 7-13% of the flips missing |
 | record length | **4 ms and longer** exact; 2 ms loses 13-40% of the flips |
 | shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |
 | fractional code phase | flips exact at 0.25/0.5/0.75 sample offsets; residual power rises to 1.14x noise |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz |
+| Doppler absent or clustered | exact with all 12 PRNs at **0 Hz**, within ±2 Hz, and within ±20 Hz |
+| Doppler far from zero | found to about **±5.5 kHz** with the default span; nothing at ±5.8 kHz — but raising `--max-speed-km-h` recovers **±6, ±10, ±15, ±20 and ±30 kHz exactly**, at the cost of search time and a slightly higher detection threshold |
 | no shared rule / no modification | reports **0 chips at 0.000 dB** — no rule invented |
 
-The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin.
+The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Below 6 detected PRNs `solve.py` prints a warning: the combining gain is not there, and the benchmark shows 2-4 PRNs leave 7-13% of the chips missing.
 
 ## Third-party code, stated plainly
 

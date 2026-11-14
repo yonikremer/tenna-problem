@@ -112,6 +112,23 @@ def test_solve_runs_end_to_end_and_writes_every_artifact(shared_55, capsys):
         assert Path(recording.replace(".nc", suffix)).exists()
 
 
+def test_a_full_constellation_carries_no_warning(shared_55):
+    assert shared_55["recovery"].warnings == ()
+    assert shared_55["recovery"].describe_warnings() == []
+
+
+def test_too_few_prns_is_reported_as_provisional(shared_55):
+    """Three PRNs cannot decide every chip; the benchmark's PRN sweep shows the same."""
+    acquisition = shared_55["recovery"].acquisition
+    few = dataclasses.replace(
+        acquisition, detections=tuple(d for d in acquisition.detections if d.detected)[:3]
+    )
+    recovery = pipeline.recover(shared_55["recording"], acquisition=few)
+    assert len(recovery.satellites) == 3
+    assert len(recovery.warnings) == 1
+    assert "only 3 PRNs detected" in recovery.describe_warnings()[0]
+
+
 def test_recovery_reports_a_recording_where_nothing_was_detected(shared_55):
     """A dense modification pushes the nominal-code correlation under the detection threshold."""
     nothing_detected = dataclasses.replace(shared_55["recovery"].acquisition, detections=())

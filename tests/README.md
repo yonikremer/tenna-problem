@@ -64,8 +64,8 @@ script on the real recordings returns the same slope 2 and the same base pattern
 
 | recording | score | residual with nominal codes | residual with recovered codes |
 | --- | --- | --- | --- |
-| `gnss_observation.nc` | 2.99 | 1.0421 | 0.9911 |
-| `gnss_observation2.nc` | 2.00 | 1.0052 | 0.9970 |
+| `data/gnss_observation.nc` | 2.99 | 1.0421 | 0.9911 |
+| `data/gnss_observation2.nc` | 2.00 | 1.0052 | 0.9970 |
 
 The earlier note in `docs/notes_chip_extraction.md` that the positions are not shared was measured
 with the buggy chip labels described below. With correct labels and the 2-chip alignment, the common
@@ -254,7 +254,7 @@ Code: `tests/global_flip.py` (`prepare`, `score_changes`, `brute_force_change`).
 
 1. Fixed `chip_bits.chip_vector` first. Before that, cross-satellite chip coordinates were mislabelled
    and any comparison was meaningless.
-2. For each satellite in `gnss_observation.nc`, cancelled the other eleven with nominal codes, then
+2. For each satellite in `data/gnss_observation.nc`, cancelled the other eleven with nominal codes, then
    read one complex soft value per chip. Each vector is mostly +amplitude with about 15 negative dips.
 3. Circularly cross-correlated every satellite's vector against satellite 1 over all 1023 shifts. On
    the strong file the winning shifts came out as `0, -2, -4, -6, ... -22`, i.e. exactly
@@ -266,13 +266,13 @@ Code: `tests/global_flip.py` (`prepare`, `score_changes`, `brute_force_change`).
    correlation gain. All twelve held-out gains were **+0.19 to +0.34 dB** (mean +0.25 dB, theory
    +0.26 dB). Random 15-chip masks gave **-0.23 to -0.27 dB**.
 
-`gnss_observation2.nc` did not show a stable pattern: winning shifts were random and held-out gains
+`data/gnss_observation2.nc` did not show a stable pattern: winning shifts were random and held-out gains
 were negative. Its signals are weaker, so the pattern is not recoverable there.
 
 ## Second recording: 14 strong flips, 987 weak but kept with a warning
 
-The same seven-step process on `gnss_observation2.nc` gives the same slope 2, but the fixed-15
-consensus has a hole. At the 15 base positions of `gnss_observation.nc`:
+The same seven-step process on `data/gnss_observation2.nc` gives the same slope 2, but the fixed-15
+consensus has a hole. At the 15 base positions of `data/gnss_observation.nc`:
 
 | base chip | consensus (normalised) | satellites negative |
 | --- | --- | --- |
@@ -290,8 +290,8 @@ Average over all 12 left-out choices. The maximum is the data-driven count.
 
 | recording | best K | mean held-out gain at best K |
 | --- | --- | --- |
-| `gnss_observation.nc` | **15** | +0.249 dB |
-| `gnss_observation2.nc` | **14** | +0.246 dB |
+| `data/gnss_observation.nc` | **15** | +0.249 dB |
+| `data/gnss_observation2.nc` | **14** | +0.246 dB |
 
 The earlier list `5,10,12,15,...` was only a diagnostic sweep; the choice below does not depend on it.
 

@@ -7,6 +7,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = Path(__file__).resolve().parent
+DATA_TESTS = ROOT / "data" / "tests"
 for path in (ROOT, TESTS, ROOT / "vendor"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
@@ -61,9 +62,9 @@ def read_codes(path):
 def synthetic():
     make_synthetic.self_check()
     make_synthetic.main(make_synthetic.SEED)
-    recording = TESTS / "synthetic_l1.nc"
-    truth = read_truth(TESTS / "synthetic_l1_truth.csv")
-    codes = read_codes(TESTS / "synthetic_l1_codes.csv")
+    recording = DATA_TESTS / "synthetic_l1.nc"
+    truth = read_truth(DATA_TESTS / "synthetic_l1_truth.csv")
+    codes = read_codes(DATA_TESTS / "synthetic_l1_codes.csv")
     samples, periods, lattice = acquisition.load_recording(str(recording))
     return SimpleNamespace(
         recording=str(recording),
@@ -134,7 +135,7 @@ def truth_clean(synthetic):
 def cu8_recording(synthetic):
     from analysis import nc2cu8
 
-    destination = TESTS / "synthetic_l1.cu8"
+    destination = DATA_TESTS / "synthetic_l1.cu8"
     nc2cu8.main(synthetic.recording, str(destination))
     return str(destination)
 
@@ -146,12 +147,12 @@ def shared_55():
 
     import make_shared_55  # type: ignore
 
-    from gnss import pipeline
+    from gnss import pipeline, tables
 
     make_shared_55.self_check()
     make_shared_55.main()
-    recording = str(Path(make_shared_55.__file__).with_name("synthetic_shared_55.nc"))
-    with open(Path(make_shared_55.__file__).with_name("synthetic_shared_55_truth.csv"), encoding="utf-8") as handle:
+    recording = str(DATA_TESTS / "synthetic_shared_55.nc")
+    with open(DATA_TESTS / "synthetic_shared_55_truth.csv", encoding="utf-8") as handle:
         truth = {
             int(row["satellite"]): {
                 **row,
@@ -166,6 +167,9 @@ def shared_55():
             for row in csv.DictReader(handle)
         }
     recovery = pipeline.recover(recording, satellites=range(1, 13))
+    # the analysis scripts read the acquisition table by convention, so the fixture must produce it
+    # rather than rely on one left behind by an earlier session
+    tables.write_acquisition(recording, recovery.acquisition.detections)
     return {
         "recording": recording,
         "truth": truth,

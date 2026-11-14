@@ -27,7 +27,7 @@ from gnss import acquisition, alignment, chips
 from gnss.lattice import load_recording
 from gnss.tables import artifact, read_detections
 
-DEFAULT_RECORDINGS = ("gnss_observation.nc", "gnss_observation2.nc")
+DEFAULT_RECORDINGS = ("data/gnss_observation.nc", "data/gnss_observation2.nc")
 
 
 def main(recordings=DEFAULT_RECORDINGS):
