@@ -363,9 +363,9 @@ Single-satellite chip repair is not reliable at 55 dB-Hz. The common rule is wha
 
 Current result:
 
-```
-127 passed
-Total coverage 97.1% of gnss/
+```text
+141 passed
+Total coverage 96.4% of gnss/
 Required minimum 90% (pytest.ini)
 ```
 
