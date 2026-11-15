@@ -457,15 +457,15 @@ Does a longer record buy a lower C/N0 floor for the full 15-chip recovery? A chi
 
 ### Minimal C/N0 per duration
 
-`half` is the C/N0 where recovery stops being a coin flip (the 50% crossing, interpolated between the probes that bracket it); `reliable` is the located edge at the criterion; `band` is the C/N0 range between them. The supplied recordings are 8 ms (marked on the scatter). Read `half` with the scatter beside it: it is a linear interpolation, so it is only as precise as the gap between the two probes either side of it - at 2 ms that gap is the widest, so its band is the least certain end of the table.
+`minimal C/N0` is the lowest value at which the criterion still holds; `first failure` is the next probe down, so the edge is bracketed between the two. The supplied recordings are 8 ms, marked on the figure.
 
-| code periods | duration | half at | reliable at | band | rate there | 95% interval | first failure |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2 | 2 ms | 48.1522 dB-Hz | **55.9375 dB-Hz** | 7.79 dB | 95/100 = 95% | 89% to 98% | 55.7031 dB-Hz |
-| 4 | 4 ms | 47.8125 dB-Hz | **52.1875 dB-Hz** | 4.38 dB | 96/100 = 96% | 90% to 98% | 52.0312 dB-Hz |
-| **8** | 8 ms | 46.0526 dB-Hz | **49.375 dB-Hz** | 3.32 dB | 95/100 = 95% | 89% to 98% | 49.2188 dB-Hz |
-| 16 | 16 ms | 43.0523 dB-Hz | **45 dB-Hz** | 1.95 dB | 95/100 = 95% | 89% to 98% | 44.8438 dB-Hz |
-| 32 | 32 ms | 40.3125 dB-Hz | **42.5 dB-Hz** | 2.19 dB | 95/100 = 95% | 89% to 98% | 42.3438 dB-Hz |
+| code periods | duration | minimal C/N0 | rate there | 95% interval | first failure |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 2 ms | **55.9375 dB-Hz** | 95/100 = 95% | 89% to 98% | 55.7031 dB-Hz |
+| 4 | 4 ms | **52.1875 dB-Hz** | 96/100 = 96% | 90% to 98% | 52.0312 dB-Hz |
+| **8** | 8 ms | **49.375 dB-Hz** | 95/100 = 95% | 89% to 98% | 49.2188 dB-Hz |
+| 16 | 16 ms | **45 dB-Hz** | 95/100 = 95% | 89% to 98% | 44.8438 dB-Hz |
+| 32 | 32 ms | **42.5 dB-Hz** | 95/100 = 95% | 89% to 98% | 42.3438 dB-Hz |
 
 From 2 to 32 code periods the floor moves 13.44 dB, which is **3.36 dB per doubling** of the record (3 dB is what perfect coherent combining of one more chip measurement per period would give).
 
@@ -508,7 +508,7 @@ From 2 to 32 code periods the floor moves 13.44 dB, which is **3.36 dB per doubl
 `#` at least 95 of 100 recover, `o` half to that, `.` below half, blank not probed.
 `*` the supplied recordings: 8 ms, 8 code periods.
 
-The same scatter as a picture: [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg).
+The same scatter as a picture: [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg). The two horizontal bands on it are the C/N0 each supplied recording spans over its twelve PRNs (recording 1 54.1-54.9, recording 2 44.1-48 dB-Hz), measured with `python -m gnss.acquisition`.
 
 ### Cost
 

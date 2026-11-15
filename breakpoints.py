@@ -514,6 +514,15 @@ def cached_section(cache_path: Path = CACHE_PATH) -> list:
 # because it is the length the rest of the repository is about.
 ASSIGNMENT_PERIODS = 8
 
+# The C/N0 each supplied recording actually spans over its twelve PRNs, measured with
+#   python -m gnss.acquisition data/gnss_observation.nc --satellites 1-32   (and ...2.nc)
+# They are drawn as horizontal bands so the figure answers the question a reader actually has: are
+# our signals above the edge at our record length?
+OBSERVATIONS = (
+    ("recording 1", 54.1, 54.9),
+    ("recording 2", 44.1, 48.0),
+)
+
 
 def _probes_of(record: dict) -> list:
     """Every (C/N0, rate) this axis actually probed, bracket ends included."""
@@ -521,23 +530,6 @@ def _probes_of(record: dict) -> list:
     points += [(value, passes) for value, passes, _ in record["trace"]]
     points.append((record["breaking"], record["bad_probe"][0]))
     return points
-
-
-def _half_rate_cn0(points: list, signals: int) -> float | None:
-    """The C/N0 where the recovery rate crosses half, interpolated between the bracketing probes.
-
-    This is the bottom of the useful range: below it a recording more often fails than recovers, so
-    the chain is gambling. The located edge is the top of the same range, where it is reliable.
-    """
-    ordered = sorted(points)
-    for (low_cn0, low_passes), (high_cn0, high_passes) in zip(ordered, ordered[1:], strict=False):
-        low_rate = low_passes / signals
-        high_rate = high_passes / signals
-        if low_rate < 0.5 <= high_rate:
-            if high_rate == low_rate:
-                return float(high_cn0)
-            return float(low_cn0 + (0.5 - low_rate) / (high_rate - low_rate) * (high_cn0 - low_cn0))
-    return None
 
 
 def _glyph(rate: float | None, signals: int, criterion: float) -> str:
@@ -586,12 +578,24 @@ def _text_scatter(records: list, periods: list, signals: int, criterion: float) 
 def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -> str:
     """The same scatter as an SVG, so it can be looked at rather than read.
 
-    Hand-written because the alternative was a fifty-megabyte plotting dependency for one figure;
-    the sheet is axis lines, one circle per probe and a dashed line through the located edges.
+    Hand-written, because the figure has to be produced by an environment that has nothing but
+    numpy. The sheet is laid out to be read without a caption: one warm column marking the 8 ms of
+    the supplied recordings, one band per record length showing the C/N0 it spans between a coin
+    flip and reliability, the probes themselves as dots coloured by their pass rate, and a dashed
+    line through the located edges. The legend sits in a row underneath so nothing competes with
+    the data for space, and the only text inside the plot is the 8 ms callout, which has the top of
+    that column to itself.
     """
     low, high = 40.0, 70.0
-    width, height, left, right, top, bottom = 780, 470, 86, 26, 46, 70
-    plot_width, plot_height = width - left - right, height - top - bottom
+    width, height = 900, 520
+    left, right, top, bottom = 84, 28, 112, 104
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    edge_colour = "#0969da"
+    annotation = "#414a53"
+    grid_colour = "#f2f4f7"
+    ink, muted = "#1f2328", "#57606a"
+
     spans = np.log2(periods)
     span = float(spans.max() - spans.min())
 
@@ -603,59 +607,88 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
     def y_of(cn0: float) -> float:
         return float(top + (high - cn0) / (high - low) * plot_height)
 
+    bottom_of_plot = top + plot_height
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" font-family="system-ui, sans-serif" font-size="13">',
+        f'viewBox="0 0 {width} {height}" font-family="system-ui, -apple-system, Segoe UI, '
+        f'sans-serif">',
         f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
-        f'<text x="{left}" y="26" font-size="15" font-weight="600">Minimal C/N0 for full 15-chip '
-        f'recovery against record length</text>',
-        f'<text x="{left}" y="42" fill="#57606a">{signals} independent signals per probe, '
-        f'criterion {round(criterion * signals)} of {signals}; 12 PRNs, 15 flipped chips</text>',
+        f'<text x="28" y="36" font-size="17" font-weight="600" fill="{ink}">'
+        f"Lowest C/N0 that still recovers all 15 chips</text>",
+        f'<text x="28" y="58" font-size="13" fill="{muted}">'
+        f'{signals} independent recordings per point &#183; a point counts only if every PRN, the '
+        f'shift and all 15 chips are exact &#183; 12 PRNs</text>',
+        f'<text x="28" y="76" font-size="13" fill="{muted}">'
+        f"C/N0 at which {round(criterion * signals)} of {signals} recordings recover, by record "
+        f"length</text>",
     ]
+
+    # The two supplied recordings, as horizontal bands over the whole width: their own C/N0 span.
+    # Drawn first so they are washes behind the measurements, not shapes competing with them. Explicit
+    # light fills rather than fill-opacity, because not every SVG rasteriser honours opacity on a rect.
+    observation_colours = (
+        ("#e4f5f2", "#0f766e"),
+        ("#efe9fd", "#6d28d9"),
+    )
+    for index, (label, observation_low, observation_high) in enumerate(OBSERVATIONS):
+        tint, ink_colour = observation_colours[index % len(observation_colours)]
+        y_top, y_bottom = y_of(observation_high), y_of(observation_low)
+        parts.append(
+            f'<rect x="{left}" y="{y_top:.1f}" width="{plot_width}" '
+            f'height="{max(y_bottom - y_top, 1.5):.1f}" fill="{tint}"/>'
+        )
+        for edge in (y_top, y_bottom):
+            parts.append(
+                f'<line x1="{left}" y1="{edge:.1f}" x2="{left + plot_width}" y2="{edge:.1f}" '
+                f'stroke="{ink_colour}" stroke-opacity="0.5" stroke-width="1"/>'
+            )
+        parts.append(
+            f'<text x="{left + plot_width - 8}" y="{y_top - 6:.1f}" text-anchor="end" '
+            f'font-size="11" font-weight="600" fill="{ink_colour}">{label}: '
+            f'{observation_low:g}-{observation_high:g} dB-Hz</text>'
+        )
+
     cn0_tick = low
     while cn0_tick <= high + 1e-9:
         y = y_of(cn0_tick)
-        parts.append(f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" y2="{y:.1f}" stroke="#eaeef2"/>')
-        parts.append(f'<text x="{left - 10}" y="{y + 4:.1f}" text-anchor="end" fill="#57606a">{cn0_tick:g}</text>')
+        parts.append(
+            f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" y2="{y:.1f}" '
+            f'stroke="{grid_colour}" stroke-width="1"/>'
+        )
+        parts.append(
+            f'<text x="{left - 12}" y="{y + 4:.1f}" text-anchor="end" font-size="12" '
+            f'fill="{muted}">{cn0_tick:g}</text>'
+        )
         cn0_tick += 5.0
     for count in periods:
         x = x_of(count)
-        parts.append(f'<line x1="{x:.1f}" y1="{top}" x2="{x:.1f}" y2="{top + plot_height}" stroke="#eaeef2"/>')
-        parts.append(f'<text x="{x:.1f}" y="{top + plot_height + 20}" text-anchor="middle">{count}</text>')
-        parts.append(f'<text x="{x:.1f}" y="{top + plot_height + 36}" text-anchor="middle" fill="#57606a">{count} ms</text>')
+        ours = count == ASSIGNMENT_PERIODS
+        parts.append(
+            f'<text x="{x:.1f}" y="{bottom_of_plot + 22}" text-anchor="middle" font-size="12" '
+            f'font-weight="{"600" if ours else "400"}" '
+            f'fill="{annotation if ours else muted}">{count}</text>'
+        )
     parts += [
-        f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="#8c959f"/>',
-        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="#8c959f"/>',
-        f'<text x="{left + plot_width / 2:.0f}" y="{height - 14}" text-anchor="middle" fill="#57606a">'
-        f'record length, code periods (log scale)</text>',
-        f'<text transform="translate(20 {top + plot_height / 2:.0f}) rotate(-90)" text-anchor="middle" '
-        f'fill="#57606a">C/N0 per PRN, dB-Hz</text>',
+        f'<line x1="{left}" y1="{bottom_of_plot}" x2="{left + plot_width}" y2="{bottom_of_plot}" '
+        f'stroke="#d0d7de"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom_of_plot}" stroke="#d0d7de"/>',
+        f'<text x="{left + plot_width / 2:.0f}" y="{bottom_of_plot + 44}" text-anchor="middle" '
+        f'font-size="12" fill="{muted}">record length in code periods (log scale) &#183; '
+        f'1 period = 1 ms</text>',
+        f'<text transform="translate(26 {top + plot_height / 2:.0f}) rotate(-90)" '
+        f'text-anchor="middle" font-size="12" fill="{muted}">C/N0 per PRN (dB-Hz)</text>',
     ]
-    # The supplied recordings are 8 ms: marked first so it sits behind the data, not on top of it.
-    if ASSIGNMENT_PERIODS in periods:
-        callout = x_of(ASSIGNMENT_PERIODS)
-        parts.append(
-            f'<rect x="{callout - 17:.1f}" y="{top}" width="34" height="{plot_height}" '
-            f'fill="#0969da" fill-opacity="0.08"/>'
-        )
-        parts.append(
-            f'<text x="{callout:.1f}" y="{top + plot_height + 52}" text-anchor="middle" '
-            f'fill="#0969da" font-weight="600">{ASSIGNMENT_PERIODS} ms = our signal</text>'
-        )
 
-    # The useful range of each length: from the C/N0 where recovery is a coin flip to where it is
-    # reliable. Drawn before the probes so the bars sit behind the points.
-    for index, record in enumerate(records):
-        if record["error"] or not record.get("located"):
-            continue
-        half = _half_rate_cn0(_probes_of(record), signals)
-        if half is None:
-            continue
-        x = x_of(periods[index])
-        edge = record["located"][0]
+    # one rule marking the record length of the supplied recordings, on top of the washes
+    if ASSIGNMENT_PERIODS in periods:
+        column = x_of(ASSIGNMENT_PERIODS)
         parts.append(
-            f'<line x1="{x:.1f}" y1="{y_of(half):.1f}" x2="{x:.1f}" y2="{y_of(edge):.1f}" '
-            f'stroke="#0969da" stroke-width="11" stroke-opacity="0.22" stroke-linecap="round"/>'
+            f'<line x1="{column:.1f}" y1="{top}" x2="{column:.1f}" y2="{bottom_of_plot}" '
+            f'stroke="{annotation}" stroke-width="1.5"/>'
+        )
+        parts.append(
+            f'<text x="{column:.1f}" y="{top - 10}" text-anchor="middle" font-size="12" '
+            f'font-weight="600" fill="{annotation}">our recordings: {ASSIGNMENT_PERIODS} ms</text>'
         )
 
     colours = {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"}
@@ -664,16 +697,16 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
             continue
         x = x_of(periods[index])
         for cn0, passes in _probes_of(record):
-            glyph = _glyph(passes, signals, criterion)
             parts.append(
-                f'<circle cx="{x:.1f}" cy="{y_of(cn0):.1f}" r="5" fill="{colours[glyph]}" '
-                f'fill-opacity="0.85"/>'
+                f'<circle cx="{x:.1f}" cy="{y_of(cn0):.1f}" r="4.5" '
+                f'fill="{colours[_glyph(passes, signals, criterion)]}" fill-opacity="0.9"/>'
             )
         if record.get("located"):
             parts.append(
-                f'<circle cx="{x:.1f}" cy="{y_of(record["located"][0]):.1f}" r="9" fill="none" '
-                f'stroke="#0969da" stroke-width="2"/>'
+                f'<circle cx="{x:.1f}" cy="{y_of(record["located"][0]):.1f}" r="8" fill="none" '
+                f'stroke="{edge_colour}" stroke-width="2.5"/>'
             )
+
     edges = [
         (x_of(periods[index]), y_of(record["located"][0]))
         for index, record in enumerate(records)
@@ -681,24 +714,38 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
     ]
     if len(edges) > 1:
         path = " ".join(f"{x:.1f},{y:.1f}" for x, y in edges)
-        parts.append(f'<polyline points="{path}" fill="none" stroke="#0969da" stroke-width="2" stroke-dasharray="6 4"/>')
-    legend = [("#", "at or above the criterion"), ("o", "half to the criterion"), (".", "below half")]
-    for row, (glyph, text) in enumerate(legend):
-        y = top + 16 + row * 20
-        parts.append(f'<circle cx="{left + plot_width - 210}" cy="{y - 4}" r="5" fill="{colours[glyph]}" fill-opacity="0.85"/>')
-        parts.append(f'<text x="{left + plot_width - 198}" y="{y}" fill="#57606a">{text}</text>')
-    parts.append(
-        f'<line x1="{left + plot_width - 210}" y1="{top + 96}" x2="{left + plot_width - 194}" '
-        f'y2="{top + 96}" stroke="#0969da" stroke-width="11" stroke-opacity="0.22" stroke-linecap="round"/>'
-    )
-    parts.append(
-        f'<text x="{left + plot_width - 188}" y="{top + 100}" fill="#57606a">'
-        f'half to reliable band</text>'
-    )
-    parts.append(
-        f'<text x="{left + plot_width - 210}" y="{top + 120}" fill="#0969da">'
-        f'dashed: located edge</text>'
-    )
+        parts.append(
+            f'<polyline points="{path}" fill="none" stroke="{edge_colour}" stroke-width="2.5" '
+            f'stroke-dasharray="7 5" stroke-linecap="round"/>'
+        )
+
+    # legend in a row underneath: nothing has to be read around the data
+    legend = [
+        ("dot", colours["#"], f"at least {round(criterion * signals)} of {signals} recover"),
+        ("dot", colours["o"], "half to that"),
+        ("dot", colours["."], "below half"),
+        ("rule", annotation, "our record length"),
+        ("dash", edge_colour, "located edge"),
+    ]
+    x = left
+    for kind, colour, label in legend:
+        y = height - 26
+        if kind == "dot":
+            parts.append(f'<circle cx="{x + 5}" cy="{y - 4}" r="4.5" fill="{colour}"/>')
+        elif kind == "rule":
+            parts.append(
+                f'<line x1="{x + 6}" y1="{y - 12}" x2="{x + 6}" y2="{y + 3}" stroke="{colour}" '
+                f'stroke-width="1.5"/>'
+            )
+        else:
+            parts.append(
+                f'<line x1="{x}" y1="{y - 4}" x2="{x + 14}" y2="{y - 4}" stroke="{colour}" '
+                f'stroke-width="2.5" stroke-dasharray="5 4"/>'
+            )
+        parts.append(
+            f'<text x="{x + 22}" y="{y}" font-size="12" fill="{muted}">{label}</text>'
+        )
+        x += 30 + 6.6 * len(label)
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
@@ -723,16 +770,12 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
         [
             "### Minimal C/N0 per duration",
             "",
-            "`half` is the C/N0 where recovery stops being a coin flip (the 50% crossing, "
-            "interpolated between the probes that bracket it); `reliable` is the located edge at the "
-            "criterion; `band` is the C/N0 range between them. The supplied recordings are 8 ms "
-            "(marked on the scatter). Read `half` with the scatter beside it: it is a linear "
-            "interpolation, so it is only as precise as the gap between the two probes either side of "
-            "it - at 2 ms that gap is the widest, so its band is the least certain end of the table.",
+            "`minimal C/N0` is the lowest value at which the criterion still holds; `first failure` "
+            "is the next probe down, so the edge is bracketed between the two. The supplied "
+            "recordings are 8 ms, marked on the figure.",
             "",
-            "| code periods | duration | half at | reliable at | band | rate there | 95% interval "
-            "| first failure |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| code periods | duration | minimal C/N0 | rate there | 95% interval | first failure |",
+            "| --- | --- | --- | --- | --- | --- |",
         ]
     )
     for index, record in enumerate(records):
@@ -740,7 +783,7 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
         marked = f"**{periods_count}**" if periods_count == ASSIGNMENT_PERIODS else f"{periods_count}"
         if record["error"]:
             lines.append(
-                f"| {marked} | {periods_count} ms | **bracket wrong** | {record['error']} | | | | |"
+                f"| {marked} | {periods_count} ms | **bracket wrong** | {record['error']} | | |"
             )
             continue
         passing, breaking = record["located"]
@@ -748,11 +791,8 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
         if passes is None:
             passes = record["good_probe"][0]
         low, high = wilson_interval(passes, signals)
-        half = _half_rate_cn0(_probes_of(record), signals)
-        half_cell = f"{half:g} dB-Hz" if half is not None else "below the probes"
-        band_cell = f"{passing - half:.2f} dB" if half is not None else "n/a"
         lines.append(
-            f"| {marked} | {periods_count} ms | {half_cell} | **{passing:g} dB-Hz** | {band_cell} | "
+            f"| {marked} | {periods_count} ms | **{passing:g} dB-Hz** | "
             f"{passes}/{signals} = {100 * passes / signals:.0f}% | "
             f"{100 * low:.0f}% to {100 * high:.0f}% | {breaking:g} dB-Hz |"
         )
@@ -784,7 +824,15 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
     try:
         figure.parent.mkdir(parents=True, exist_ok=True)
         figure.write_text(_scatter_svg(records, periods, signals, criterion), encoding="utf-8")
-        lines.extend([f"The same scatter as a picture: [`{figure.as_posix()}`]({figure.as_posix()}).", ""])
+        bands = ", ".join(f"{label} {low:g}-{high:g}" for label, low, high in OBSERVATIONS)
+        lines.extend(
+            [
+                f"The same scatter as a picture: [`{figure.as_posix()}`]({figure.as_posix()}). The "
+                f"two horizontal bands on it are the C/N0 each supplied recording spans over its "
+                f"twelve PRNs ({bands} dB-Hz), measured with `python -m gnss.acquisition`.",
+                "",
+            ]
+        )
     except OSError as error:
         lines.extend([f"The SVG could not be written ({error}); the text scatter above is the data.", ""])
     probes = sum(len(record["trace"]) + 2 for record in records)
