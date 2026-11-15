@@ -383,15 +383,119 @@
 
 <h2 id="s10">Where the chain breaks</h2>
 
-<p>The two assignment files are one point. <code>python benchmark.py</code> sweeps around that point. It does not read <code>gnss_observation.nc</code> or <code>gnss_observation2.nc</code>.</p>
-<p>It builds new recordings from the same signal model. The flipped chips, the Doppler and the delays are known before the chain runs. Each cell is generated twice, with a different noise seed. One lucky draw is not a pass.</p>
+<p>The two assignment files are one point. <code>python benchmark.py</code> sweeps around that point, two noise seeds per cell. <code>python breakpoints.py</code> then measures a rate at each value: 100 independent recordings per point, bisected until the passing and breaking ends are one step apart. Neither reads <code>gnss_observation.nc</code> or <code>gnss_observation2.nc</code>.</p>
+<p>Both build new recordings from the same signal model. The flipped chips, the Doppler and the delays are known before the chain runs.</p>
 
 <p>A run passes only when every PRN is found, none extra, the shift is the true shift, and the recovered flip set matches the truth exactly. Doppler error, residual power and flip precision are recorded either way. One axis moves at a time. Everything else stays at the assignment case: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms, slope 2.</p>
+
+<figure class="chart">
+<svg role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+<rect width="900" height="520" fill="var(--bg)"/>
+<text x="28" y="36" font-size="17" font-weight="600" fill="var(--ink)">Longer records read weaker signals</text>
+<text x="28" y="58" font-size="13" fill="var(--muted)">100 recordings per point, all 15 chips exact, 12 PRNs</text>
+<text x="28" y="76" font-size="13" fill="var(--muted)">C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>
+<rect x="84" y="265.0" width="788" height="8.1" fill="var(--fig-teal-band)"/>
+<line x1="84" y1="265.0" x2="872" y2="265.0" stroke="var(--fig-teal)" stroke-opacity="0.5" stroke-width="1"/>
+<line x1="84" y1="273.1" x2="872" y2="273.1" stroke="var(--fig-teal)" stroke-opacity="0.5" stroke-width="1"/>
+<text x="864" y="259.0" text-anchor="end" font-size="11" font-weight="600" fill="var(--fig-teal)">recording 1: 54.1-54.9 dB-Hz</text>
+<rect x="84" y="334.9" width="788" height="39.5" fill="var(--fig-purple-band)"/>
+<line x1="84" y1="334.9" x2="872" y2="334.9" stroke="var(--fig-purple)" stroke-opacity="0.5" stroke-width="1"/>
+<line x1="84" y1="374.5" x2="872" y2="374.5" stroke="var(--fig-purple)" stroke-opacity="0.5" stroke-width="1"/>
+<text x="864" y="328.9" text-anchor="end" font-size="11" font-weight="600" fill="var(--fig-purple)">recording 2: 44.1-48 dB-Hz</text>
+<line x1="84" y1="416.0" x2="872" y2="416.0" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="420.0" text-anchor="end" font-size="12" fill="var(--muted)">40</text>
+<line x1="84" y1="365.3" x2="872" y2="365.3" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="369.3" text-anchor="end" font-size="12" fill="var(--muted)">45</text>
+<line x1="84" y1="314.7" x2="872" y2="314.7" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="318.7" text-anchor="end" font-size="12" fill="var(--muted)">50</text>
+<line x1="84" y1="264.0" x2="872" y2="264.0" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="268.0" text-anchor="end" font-size="12" fill="var(--muted)">55</text>
+<line x1="84" y1="213.3" x2="872" y2="213.3" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="217.3" text-anchor="end" font-size="12" fill="var(--muted)">60</text>
+<line x1="84" y1="162.7" x2="872" y2="162.7" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="166.7" text-anchor="end" font-size="12" fill="var(--muted)">65</text>
+<line x1="84" y1="112.0" x2="872" y2="112.0" stroke="var(--panel)" stroke-width="1"/>
+<text x="72" y="116.0" text-anchor="end" font-size="12" fill="var(--muted)">70</text>
+<text x="84.0" y="438" text-anchor="middle" font-size="12" font-weight="400" fill="var(--muted)">2</text>
+<text x="281.0" y="438" text-anchor="middle" font-size="12" font-weight="400" fill="var(--muted)">4</text>
+<text x="478.0" y="438" text-anchor="middle" font-size="12" font-weight="600" fill="var(--fig-strong)">8</text>
+<text x="675.0" y="438" text-anchor="middle" font-size="12" font-weight="400" fill="var(--muted)">16</text>
+<text x="872.0" y="438" text-anchor="middle" font-size="12" font-weight="400" fill="var(--muted)">32</text>
+<line x1="84" y1="416" x2="872" y2="416" stroke="var(--line)"/>
+<line x1="84" y1="112" x2="84" y2="416" stroke="var(--line)"/>
+<text x="478" y="460" text-anchor="middle" font-size="12" fill="var(--muted)">record length in code periods (log scale) &#183; 1 period = 1 ms</text>
+<text transform="translate(26 264) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--muted)">C/N0 per PRN (dB-Hz)</text>
+<line x1="478.0" y1="112" x2="478.0" y2="416" stroke="var(--fig-strong)" stroke-width="1.5"/>
+<text x="478.0" y="102" text-anchor="middle" font-size="12" font-weight="600" fill="var(--fig-strong)">our recordings: 8 ms</text>
+<circle cx="84.0" cy="112.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="264.0" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="188.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="226.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="245.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="254.5" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="259.2" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="256.9" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="416.0" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="84.0" cy="254.5" r="8" fill="none" stroke="var(--fig-blue)" stroke-width="2.5"/>
+<circle cx="281.0" cy="213.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="314.7" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="264.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="289.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="302.0" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="295.7" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="292.5" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="294.1" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="416.0" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="281.0" cy="292.5" r="8" fill="none" stroke="var(--fig-blue)" stroke-width="2.5"/>
+<circle cx="478.0" cy="213.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="314.7" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="365.3" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="340.0" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="327.3" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="321.0" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="324.2" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="322.6" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="416.0" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="478.0" cy="321.0" r="8" fill="none" stroke="var(--fig-blue)" stroke-width="2.5"/>
+<circle cx="675.0" cy="213.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="314.7" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="365.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="390.7" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="378.0" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="371.7" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="368.5" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="366.9" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="416.0" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="675.0" cy="365.3" r="8" fill="none" stroke="var(--fig-blue)" stroke-width="2.5"/>
+<circle cx="872.0" cy="213.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="314.7" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="365.3" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="390.7" r="4.5" fill="var(--fig-green)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="403.3" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="397.0" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="393.8" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="392.2" r="4.5" fill="var(--fig-amber)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="416.0" r="4.5" fill="var(--fig-red)" fill-opacity="0.9"/>
+<circle cx="872.0" cy="390.7" r="8" fill="none" stroke="var(--fig-blue)" stroke-width="2.5"/>
+<polyline points="84.0,254.5 281.0,292.5 478.0,321.0 675.0,365.3 872.0,390.7" fill="none" stroke="var(--fig-blue)" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
+<circle cx="89" cy="478" r="4.5" fill="var(--fig-green)"/>
+<text x="106" y="482" font-size="12" fill="var(--muted)">95-100 of 100 fully recovered</text>
+<circle cx="315.1" cy="478" r="4.5" fill="var(--fig-amber)"/>
+<text x="332.1" y="482" font-size="12" fill="var(--muted)">50-94 of 100 fully recovered</text>
+<circle cx="534.3000000000001" cy="478" r="4.5" fill="var(--fig-red)"/>
+<text x="551.3000000000001" y="482" font-size="12" fill="var(--muted)">0-49 of 100 fully recovered</text>
+<line x1="90" y1="493" x2="90" y2="509" stroke="var(--fig-strong)" stroke-width="1.5"/>
+<text x="106" y="506" font-size="12" fill="var(--muted)">our record length</text>
+<line x1="227.3" y1="502" x2="241.3" y2="502" stroke="var(--fig-blue)" stroke-width="2.5" stroke-dasharray="5 4"/>
+<text x="249.3" y="506" font-size="12" fill="var(--muted)">located edge</text>
+</svg>
+<figcaption>How long a record must be to read a given C/N0. Each point is 100 independent recordings at 12 PRNs, scored by an exact 15-chip recovery. The two bands are the supplied files. From <code>assets/cn0_vs_duration.svg</code>, measured by <code>breakpoints.py</code>.</figcaption>
+</figure>
 
 <table>
 <tbody>
 <tr><th>Axis</th><th>Still exact</th><th>Where it breaks</th></tr>
-<tr><td>C/N0</td><td>47 dB-Hz and up, both seeds. At 47.5, 839 of 1000 known-truth trials return the exact 15. 75 drop one chip. 76 add extras.</td><td>45 dB-Hz still finds all 12 PRNs. One seed then keeps 11 of 15 flips. The other reports 13, one of them wrong.</td></tr>
+<tr><td>C/N0</td><td>The 95% edge is 49.4 dB-Hz. At 55 dB-Hz, 100 of 100 trials return the exact 15. At 47.5, 83 of 100 do.</td><td>45 dB-Hz still finds all 12 PRNs. Only 26 of 100 then recover every chip. At 40, none do.</td></tr>
 <tr><td>Flipped chips</td><td>3 to about 240 of 1023. One run at 200 came back one chip short.</td><td>At 320 the shift search locks onto 343 or 684, about 1023/3 and 2 times 1023/3. At 400, 4 to 6 of 12 PRNs are detected. At 500, none are. A code flipped in K places keeps (1023 − 2K)/1023 of the nominal correlation. Acquisition then fades.</td></tr>
 <tr><td>How many PRNs</td><td>6 to 30, at 52 dB-Hz.</td><td>1 PRN has nothing to shift against, so the slope is undefined. 2 to 4 miss chips. From 40 up, detection starts dropping PRNs: 78 of 80 at 80 PRNs, 197 to 202 of 210 at 210.</td></tr>
 <tr><td>Record length</td><td>4 ms and longer.</td><td>2 ms loses chips. Two code periods are not enough to fit the phase slope and read the mask.</td></tr>
@@ -415,8 +519,8 @@
 <li>One PRN cannot name its flips. A shared index list, or a shifted copy of that list, were the two rules worth testing. Circular correlation of every pair peaks at $-2(i-j)$.</li>
 <li>Roll, average. Exactly fifteen chips go negative. The sixteenth stays positive, nine standard deviations away.</li>
 <li>The gaps, small to large, are the Fibonacci sequence. <code>flipped_chips(prn)</code> starts at <code>1022 - 2*prn</code> and steps back by <code>fibonacci(i)</code> while the result stays at least 0.</li>
-<li>Recording 2 is the same mask, with lower C/N0, so the chip readings are noisier. Chip 987 reads +0.14. At 47.5 dB-Hz, 839 of 1000 known-truth trials return the exact 15. 75 drop one chip.</li>
-<li>The chain was broken on purpose, one axis at a time. It fails below about 47 dB-Hz, under 4 ms, under 6 PRNs, past about 240 flipped chips, and outside the Doppler span it was given. With no shared rule, it reports 0 chips.</li>
+<li>Recording 2 is the same mask, with lower C/N0, so the chip readings are noisier. Chip 987 reads +0.14. At 47.5 dB-Hz, 83 of 100 independent recordings return the exact 15; a longer 1000-trial run at the same point returned 839. 75 of those 1000 dropped one chip.</li>
+<li>The chain was broken on purpose, one axis at a time, then bisected over 100 independent recordings per point. The 95% edge is 49.4 dB-Hz, 5 code periods of record, 7 PRNs at the low end, 32 at the high end, and 140 flipped chips. Outside the Doppler span it was given, it finds nothing. With no shared rule, it reports 0 chips.</li>
 </ol>
 
 <footer>

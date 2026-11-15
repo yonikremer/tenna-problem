@@ -20,6 +20,31 @@ html[data-theme="dark"] {
   --link: #9ec0dc;
 }
 
+/* figure palette: the data colours need a lighter variant on a dark page */
+:root, html[data-theme="light"] {
+  --fig-green: #1a7f37;
+  --fig-amber: #bf8700;
+  --fig-blue: #0969da;
+  --fig-red: #d1242f;
+  --fig-teal: #0f766e;
+  --fig-teal-band: #e4f5f2;
+  --fig-purple: #6d28d9;
+  --fig-purple-band: #efe9fd;
+  --fig-strong: #414a53;
+}
+
+html[data-theme="dark"] {
+  --fig-green: #4ac26b;
+  --fig-amber: #d4a72c;
+  --fig-blue: #539bf5;
+  --fig-red: #ff7b72;
+  --fig-teal: #34b3a0;
+  --fig-teal-band: #16332e;
+  --fig-purple: #a371f7;
+  --fig-purple-band: #262038;
+  --fig-strong: #c2c8d0;
+}
+
 * { box-sizing: border-box; }
 
 html { font-size: 16px; }
@@ -272,6 +297,24 @@ html[data-theme="dark"] .heat-legend .bar {
 }
 
 .win p:last-child, .note p:last-child { margin-bottom: 0; }
+
+figure.chart {
+  margin: 0 0 1.2rem;
+  max-width: 900px;
+}
+
+figure.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
+figure.chart figcaption {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
 
 footer {
   margin-top: 2.4rem;

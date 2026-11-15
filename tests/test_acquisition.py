@@ -6,7 +6,8 @@ import netCDF4
 import numpy as np
 import pytest
 
-from gnss import acquisition, lattice as lattice_module
+from gnss import acquisition
+from gnss import lattice as lattice_module
 
 
 def test_parse_satellite_spec():
