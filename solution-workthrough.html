@@ -12,7 +12,7 @@
 </script>
 <title>Solution workthrough: one rule modified 12 PRNs</title>
 <link rel="stylesheet" href="solution-workthrough.css">
-<link rel="stylesheet" href="../assets/katex/katex.min.css">
+<link rel="stylesheet" href="assets/katex/katex.min.css">
 </head>
 <body>
 <div class="frame">
@@ -48,7 +48,7 @@
     return chips</code></pre>
 <p><code>sorted(flipped_chips(1))</code> is these fifteen chips: the function walks downward from 1020, so sorted() puts them in the order below. Recording 1 supports all of them. Recording 2's extractor drops one, chip 987.</p>
 <p class="mono">34, 411, 644, 788, 877, 932, 966, 987, 1000, 1008, 1013, 1016, 1018, 1019, 1020</p>
-<p><a href="../solve.py">solve.py</a> is the whole solution in one command: acquisition, isolation, chip readout, the shift search, the rule, and the evidence. It applies <code>closed_form_flips</code> to both recordings and writes six files next to each recording.</p>
+<p><a href="solve.py">solve.py</a> is the whole solution in one command: acquisition, isolation, chip readout, the shift search, the rule, and the evidence. It applies <code>closed_form_flips</code> to both recordings and writes six files next to each recording.</p>
 <ul>
 <li><code>data/&lt;name&gt;_acquisition.csv</code>: every searched PRN with its Doppler, code phase and C/N0.</li>
 <li><code>data/&lt;name&gt;_joint_flips.csv</code>: PRN, shift, chip index, and the same chip in PRN 1's coordinates.</li>
@@ -368,9 +368,9 @@
 <p>At 47.5 dB-Hz the exact 15-chip set came back in 839 of 1000 trials. What that means for recording 2 is the next section; the figure below places the two files against the floor that this section is about.</p>
 
 <figure class="chart">
-<img class="chart-light" src="../assets/cn0_vs_duration_light.svg" width="900" height="544"
+<img class="chart-light" src="assets/cn0_vs_duration_light.svg" width="900" height="544"
   alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
-<img class="chart-dark" src="../assets/cn0_vs_duration_dark.svg" width="900" height="544"
+<img class="chart-dark" src="assets/cn0_vs_duration_dark.svg" width="900" height="544"
   alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
 <figcaption>Each band is one recording's C/N0 span, which does not depend on record length; the vertical rule marks the 8 ms we actually have. At 8 code periods the floor is 49.4 dB-Hz, so recording 2 (44.1 to 48) is under it and recording 1 (54.1 to 54.9) is clear, which is why recording 2's weakest chip is the one the count drops. Each point is 100 independent recordings, scored by an exact 15-chip recovery.</figcaption>
 </figure>
@@ -414,7 +414,7 @@
 <p>You can decide a chip only after you stack the PRNs. Twelve PRNs buy $\sqrt{12}$, about 10.8 dB. Four PRNs buy 6 dB. That is why 2 to 4 PRNs miss chips.</p>
 <p>A 2 ms record has less of the same gain, so it fails. A 4 ms record does not. If you flip too many chips, the nominal code no longer correlates. The search then never reaches the mask.</p>
 
-<p>The assignment case is inside the exact region: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms. Recording 2 sits on the C/N0 edge. That is why its 15th chip is the one the count can drop. <a href="../BENCHMARK.md">BENCHMARK.md</a> has the seed-by-seed tables.</p>
+<p>The assignment case is inside the exact region: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms. Recording 2 sits on the C/N0 edge. That is why its 15th chip is the one the count can drop. <a href="BENCHMARK.md">BENCHMARK.md</a> has the seed-by-seed tables.</p>
 
 <h2 id="s8">The path, in one line each</h2>
 
@@ -430,14 +430,14 @@
 </ol>
 
 <footer>
-<p class="kicker">Parameter table: <code>data/gnss_observation_acquisition.csv</code>, written by <code>solve.py</code>. Modified positions and transmitted codes: <a href="../solve.py">solve.py</a>. The closed form is checked against every recovered flip list in <code>solve.py</code> and recorded per PRN in <code>rule.closed_form_matches</code> inside <code>*_solution.json</code>. Residual powers and recording 2: the published <code>*_solution.json</code> files. The data-bit signs, the per-PRN false-alarm counts, the 66-pair lag matrix, and the aligned consensus were measured on <code>gnss_observation.nc</code> with this repo’s chip readout. The seed-subtraction correlation and the recording-2 chip readings were not re-run for this page. Those numbers are the published checks in <code>FINDINGS.md</code>. The 1000-trial noise test was re-run for this page, at 47.5 dB-Hz. The break-points are from <code>BENCHMARK.md</code>, not re-run for this page.</p>
+<p class="kicker">Parameter table: <code>data/gnss_observation_acquisition.csv</code>, written by <code>solve.py</code>. Modified positions and transmitted codes: <a href="solve.py">solve.py</a>. The closed form is checked against every recovered flip list in <code>solve.py</code> and recorded per PRN in <code>rule.closed_form_matches</code> inside <code>*_solution.json</code>. Residual powers and recording 2: the published <code>*_solution.json</code> files. The data-bit signs, the per-PRN false-alarm counts, the 66-pair lag matrix, and the aligned consensus were measured on <code>gnss_observation.nc</code> with this repo’s chip readout. The seed-subtraction correlation and the recording-2 chip readings were not re-run for this page. Those numbers are the published checks in <code>FINDINGS.md</code>. The 1000-trial noise test was re-run for this page, at 47.5 dB-Hz. The break-points are from <code>BENCHMARK.md</code>, not re-run for this page.</p>
 <p class="kicker">This page as a light-theme PDF: <a href="solution-workthrough.pdf">solution-workthrough.pdf</a>.</p>
-<p class="kicker">Intuition before this path: <a href="0001-one-band-twelve-signals.html">lesson 1</a>, <a href="0002-from-peak-to-prompt.html">lesson 2</a>. The same derivation in prose: <a href="../SOLUTION.md">SOLUTION.md</a>.</p>
+<p class="kicker">Intuition before this path: <a href="lessons/0001-one-band-twelve-signals.html">lesson 1</a>, <a href="lessons/0002-from-peak-to-prompt.html">lesson 2</a>. The same derivation in prose: <a href="SOLUTION.md">SOLUTION.md</a>.</p>
 </footer>
 
 </main>
 </div>
-<script src="../assets/math.js"></script>
+<script src="assets/math.js"></script>
 <script>
 (function () {
   var button = document.getElementById("theme");

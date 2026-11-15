@@ -9,9 +9,9 @@ modified chips out of the noise, recovers the rule, and proves the rule explains
 
 Two ways to read the solution, both self-contained:
 
-- **[The walkthrough](lessons/solution-workthrough.html)**: one page, six steps, from the raw samples
+- **[The walkthrough](solution-workthrough.html)**: one page, six steps, from the raw samples
   to the rule, with the measured numbers and the two figures. Open it in a browser.
-- **[The same page as a PDF](lessons/solution-workthrough.pdf)**: light theme, 12 pages, for reading
+- **[The same page as a PDF](solution-workthrough.pdf)**: light theme, 12 pages, for reading
   or printing offline.
 
 The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md), the method step by step in
@@ -53,7 +53,7 @@ shifted by two chips. Compare `rule.closed_form_flips` with `rule.flips` in that
 Full reasoning and measured evidence: [`FINDINGS.md`](FINDINGS.md). Step-by-step derivation of the
 whole method, with the arithmetic behind every threshold: [`SOLUTION.md`](SOLUTION.md). The same
 walkthrough as a page with live numbers and charts:
-[`lessons/solution-workthrough.html`](lessons/solution-workthrough.html).
+[`solution-workthrough.html`](solution-workthrough.html).
 
 ## Setup
 
