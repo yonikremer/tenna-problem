@@ -510,12 +510,34 @@ def cached_section(cache_path: Path = CACHE_PATH) -> list:
     return report(records, signals, criterion, 0.0)
 
 
+# The record length of the supplied recordings: 8 ms, i.e. 8 code periods. Marked on the scatter
+# because it is the length the rest of the repository is about.
+ASSIGNMENT_PERIODS = 8
+
+
 def _probes_of(record: dict) -> list:
     """Every (C/N0, rate) this axis actually probed, bracket ends included."""
     points = [(record["passing"], record["good_probe"][0])]
     points += [(value, passes) for value, passes, _ in record["trace"]]
     points.append((record["breaking"], record["bad_probe"][0]))
     return points
+
+
+def _half_rate_cn0(points: list, signals: int) -> float | None:
+    """The C/N0 where the recovery rate crosses half, interpolated between the bracketing probes.
+
+    This is the bottom of the useful range: below it a recording more often fails than recovers, so
+    the chain is gambling. The located edge is the top of the same range, where it is reliable.
+    """
+    ordered = sorted(points)
+    for (low_cn0, low_passes), (high_cn0, high_passes) in zip(ordered, ordered[1:], strict=False):
+        low_rate = low_passes / signals
+        high_rate = high_passes / signals
+        if low_rate < 0.5 <= high_rate:
+            if high_rate == low_rate:
+                return float(high_cn0)
+            return float(low_cn0 + (0.5 - low_rate) / (high_rate - low_rate) * (high_cn0 - low_cn0))
+    return None
 
 
 def _glyph(rate: float | None, signals: int, criterion: float) -> str:
@@ -532,8 +554,12 @@ def _text_scatter(records: list, periods: list, signals: int, criterion: float) 
     measured = {periods[index]: dict(_probes_of(record)) for index, record in enumerate(records)}
     rows = sorted({value for record in records for value, _ in _probes_of(record)}, reverse=True)
     label_width = max(len(f"{value:g}") for value in rows)
+
+    def header_cell(periods_count: int) -> str:
+        return f"{periods_count:^4d}{'*' if periods_count == ASSIGNMENT_PERIODS else ' '}"
+
     lines = [
-        " " * (label_width + 4) + "".join(f"{periods_count:^5d}" for periods_count in periods),
+        " " * (label_width + 4) + "".join(header_cell(periods_count) for periods_count in periods),
         " " * (label_width + 2)
         + "dB-Hz"
         + " " * (5 * len(periods) - 5 - len("dB-Hz") + 2)
@@ -550,6 +576,10 @@ def _text_scatter(records: list, periods: list, signals: int, criterion: float) 
         f"`#` at least {round(criterion * signals)} of {signals} recover, `o` half to that, `.` below "
         "half, blank not probed.",
     ]
+    if ASSIGNMENT_PERIODS in periods:
+        lines.append(
+            f"`*` the supplied recordings: {ASSIGNMENT_PERIODS} ms, {ASSIGNMENT_PERIODS} code periods."
+        )
     return lines
 
 
@@ -601,6 +631,33 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         f'<text transform="translate(20 {top + plot_height / 2:.0f}) rotate(-90)" text-anchor="middle" '
         f'fill="#57606a">C/N0 per PRN, dB-Hz</text>',
     ]
+    # The supplied recordings are 8 ms: marked first so it sits behind the data, not on top of it.
+    if ASSIGNMENT_PERIODS in periods:
+        callout = x_of(ASSIGNMENT_PERIODS)
+        parts.append(
+            f'<rect x="{callout - 17:.1f}" y="{top}" width="34" height="{plot_height}" '
+            f'fill="#0969da" fill-opacity="0.08"/>'
+        )
+        parts.append(
+            f'<text x="{callout:.1f}" y="{top + plot_height + 52}" text-anchor="middle" '
+            f'fill="#0969da" font-weight="600">{ASSIGNMENT_PERIODS} ms = our signal</text>'
+        )
+
+    # The useful range of each length: from the C/N0 where recovery is a coin flip to where it is
+    # reliable. Drawn before the probes so the bars sit behind the points.
+    for index, record in enumerate(records):
+        if record["error"] or not record.get("located"):
+            continue
+        half = _half_rate_cn0(_probes_of(record), signals)
+        if half is None:
+            continue
+        x = x_of(periods[index])
+        edge = record["located"][0]
+        parts.append(
+            f'<line x1="{x:.1f}" y1="{y_of(half):.1f}" x2="{x:.1f}" y2="{y_of(edge):.1f}" '
+            f'stroke="#0969da" stroke-width="11" stroke-opacity="0.22" stroke-linecap="round"/>'
+        )
+
     colours = {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"}
     for index, record in enumerate(records):
         if record["error"]:
@@ -630,7 +687,18 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         y = top + 16 + row * 20
         parts.append(f'<circle cx="{left + plot_width - 210}" cy="{y - 4}" r="5" fill="{colours[glyph]}" fill-opacity="0.85"/>')
         parts.append(f'<text x="{left + plot_width - 198}" y="{y}" fill="#57606a">{text}</text>')
-    parts.append(f'<text x="{left + plot_width - 210}" y="{top + 76}" fill="#0969da">dashed: located edge</text>')
+    parts.append(
+        f'<line x1="{left + plot_width - 210}" y1="{top + 96}" x2="{left + plot_width - 194}" '
+        f'y2="{top + 96}" stroke="#0969da" stroke-width="11" stroke-opacity="0.22" stroke-linecap="round"/>'
+    )
+    parts.append(
+        f'<text x="{left + plot_width - 188}" y="{top + 100}" fill="#57606a">'
+        f'half to reliable band</text>'
+    )
+    parts.append(
+        f'<text x="{left + plot_width - 210}" y="{top + 120}" fill="#0969da">'
+        f'dashed: located edge</text>'
+    )
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 
@@ -655,21 +723,36 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
         [
             "### Minimal C/N0 per duration",
             "",
-            "| code periods | duration | minimal C/N0 | rate there | 95% interval | first failure |",
-            "| --- | --- | --- | --- | --- | --- |",
+            "`half` is the C/N0 where recovery stops being a coin flip (the 50% crossing, "
+            "interpolated between the probes that bracket it); `reliable` is the located edge at the "
+            "criterion; `band` is the C/N0 range between them. The supplied recordings are 8 ms "
+            "(marked on the scatter). Read `half` with the scatter beside it: it is a linear "
+            "interpolation, so it is only as precise as the gap between the two probes either side of "
+            "it - at 2 ms that gap is the widest, so its band is the least certain end of the table.",
+            "",
+            "| code periods | duration | half at | reliable at | band | rate there | 95% interval "
+            "| first failure |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for index, record in enumerate(records):
+        periods_count = periods[index]
+        marked = f"**{periods_count}**" if periods_count == ASSIGNMENT_PERIODS else f"{periods_count}"
         if record["error"]:
-            lines.append(f"| {periods[index]} | {periods[index]} ms | **bracket wrong** | {record['error']} | | |")
+            lines.append(
+                f"| {marked} | {periods_count} ms | **bracket wrong** | {record['error']} | | | | |"
+            )
             continue
         passing, breaking = record["located"]
         passes = next((p for value, p, _ in record["trace"] if value == passing), None)
         if passes is None:
             passes = record["good_probe"][0]
         low, high = wilson_interval(passes, signals)
+        half = _half_rate_cn0(_probes_of(record), signals)
+        half_cell = f"{half:g} dB-Hz" if half is not None else "below the probes"
+        band_cell = f"{passing - half:.2f} dB" if half is not None else "n/a"
         lines.append(
-            f"| {periods[index]} | {periods[index]} ms | **{passing:g} dB-Hz** | "
+            f"| {marked} | {periods_count} ms | {half_cell} | **{passing:g} dB-Hz** | {band_cell} | "
             f"{passes}/{signals} = {100 * passes / signals:.0f}% | "
             f"{100 * low:.0f}% to {100 * high:.0f}% | {breaking:g} dB-Hz |"
         )

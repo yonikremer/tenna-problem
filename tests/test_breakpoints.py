@@ -7,6 +7,8 @@ everything about whether a located edge can be trusted.
 
 import json
 
+import pytest
+
 import breakpoints
 
 
@@ -215,3 +217,31 @@ def test_each_probe_is_paid_for_once(monkeypatch):
     assert len(probed) == len(set(probed)), f"a value was probed twice: {sorted(probed)}"
     assert record["seconds"] == 10.0 * len(probed)
     assert all(passes in (0, 100) for _, passes, _ in record["trace"])
+
+
+def test_the_half_rate_crossing_is_interpolated_between_its_probes():
+    """0 of 100 at 40 dB-Hz and 83 of 100 at 47.5 puts half 0.5/0.83 of the way between them."""
+    half = breakpoints._half_rate_cn0([(40.0, 0), (47.5, 83), (50.0, 98)], 100)
+    assert half == pytest.approx(40.0 + (0.5 / 0.83) * 7.5, abs=1e-9)
+
+
+def test_the_half_rate_is_none_when_no_probe_brackets_half():
+    assert breakpoints._half_rate_cn0([(50.0, 98), (60.0, 100)], 100) is None
+    assert breakpoints._half_rate_cn0([(40.0, 0), (41.0, 2)], 100) is None
+    assert breakpoints._half_rate_cn0([(40.0, 0)], 100) is None
+
+
+def test_the_figure_marks_the_assignment_length_and_draws_one_band_per_duration():
+    good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (44.0, 20, 0.20)], (50.0, 49.0))
+    svg = breakpoints._scatter_svg([good, good], [8, 32], 100, 0.95)
+    assert breakpoints.ASSIGNMENT_PERIODS == 8
+    assert svg.count("<rect x=") == 1, "the 8 ms marker is exactly one shaded band"
+    assert "8 ms = our signal" in svg
+    assert svg.count('stroke-width="11"') == 3, "one range bar per duration plus the legend sample"
+
+
+def test_the_figure_marks_nothing_when_eight_milliseconds_is_not_plotted():
+    good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (44.0, 20, 0.20)], (50.0, 49.0))
+    svg = breakpoints._scatter_svg([good], [16], 100, 0.95)
+    assert "<rect x=" not in svg
+    assert "our signal" not in svg
