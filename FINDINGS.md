@@ -25,7 +25,7 @@ def flipped_chips(prn_index: int) -> list[int]:
 
 Sample 1 (`data/gnss_observation.nc`) uses all **15** positions. Sample 2 (`data/gnss_observation2.nc`) has
 strong evidence for **14** of them and weak positive evidence for the fifteenth, `987` (Bayes factor
-36, a third of the flip depth). The decoder keeps the positions the data supports and says which rule
+36, a third of the per-chip error bar). The decoder keeps the positions the data supports and says which rule
 position this recording cannot confirm: a mathematical pattern is not disproved by one noisy
 observation, and a weak recording is not evidence against it.
 
@@ -35,7 +35,7 @@ observation, and a weak recording is not evidence against it.
 
 | attribute | recording 1 | recording 2 |
 | --- | --- | --- |
-| `description` | "12 synthetic GPS L1 C/A signals, 8 ms, **15 recurrent flips per PRN**, complex AWGN" | superposition of GPS L1 C/A signals, 8 ms |
+| `description` | "12 synthetic GPS L1 C/A signals, 8 ms, **15 recurrent flips per PRN**, complex AWGN" | "One continuous complex baseband recording containing a superposition of GPS L1 C/A signals. Complex samples are i + 1j*q." |
 | `signal_model` | "Constant nav bit, rectangular chips, constant carrier phase/Doppler, **integer-sample delay**, independent CN(0,N0*Fs) noise" | "ideal rectangular-chip spreading, constant navigation symbol, stable carrier Doppler with coherent code Doppler, additive white Gaussian noise" |
 | `random_seed` | 20261111 | absent |
 | `target_cn0_dbhz_per_prn` | 55.0 | absent |
@@ -51,14 +51,17 @@ Three things follow, and they are the file's own statements rather than my infer
    estimates onto the grid the file declares, without being told to. Recording 2 makes no such claim,
    and its own fit is noisier (0.093), which is consistent with it being 8.5 dB weaker.
 2. **Recording 1 declares 15 flips per PRN.** That corroborates the recovered count independently of
-   the estimator, and it is why `987` is reported as unsupported rather than absent: the file itself
-   says every PRN carries fifteen.
+   the estimator, and it is why `987` is reported as unsupported rather than absent: recording 1's own
+   `description` says every PRN carries fifteen. Recording 2 declares no flip count.
 3. **The declared model is matched, not fitted.** Declared amplitude 0.2780; measured with the other
    satellites removed it is **0.2784**, a ratio of 1.001. (Projecting one satellite against the
    *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not perfectly
    orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the seeded
    noise also measures 1.0, and the 0.054 left over by a nominal-code model is the 180 flipped chips,
-   not noise — see "Double-checking the answer against the file's own seed" below.
+   not noise, on this noise-free reconstruction. On the shipped noisy recording the same model leaves
+   `residual_gain_db` 0.218 dB (recording 1) and 0.035 dB (recording 2), which is why the residual
+   check alone cannot see the flips in recording 2 — see "Double-checking the answer against the
+   file's own seed" below.
 
 Recording 1 also states that its `synthetic_truth` is a **prior inference, not verified truth**, which
 is why this report never treats it as ground truth.
@@ -136,7 +139,7 @@ measured. The lesson is worth keeping: a residual with the right *statistics* fo
 itself, and only modelling the modified code revealed it.
 
 That is the main surprise: the two files are not independent random modifications. They are the same
-rule, with one flip missing in the second file.
+rule, with one flip not measurable in the second file.
 
 ## Data
 
@@ -226,7 +229,9 @@ flipped chip -> -A_s
 
 ### 4. Find the relative shift
 
-Circularly cross-correlate each satellite's soft vector against satellite 1:
+Circularly cross-correlate each satellite's soft vector against satellite 1 (this pairwise route is
+shown on recording 1 only: recording 2 is too weak to align pairwise, and the slope search is used
+there; see *Known uncertainties*):
 
 ```text
 R_s[d] = sum_k v_s[k] * v_1[(k - d) mod 1023]
@@ -271,8 +276,8 @@ At the 15 base positions of sample 1, sample 2 gives:
 | 1008 | −0.92σ | 9/12 |
 | all other 13 | −1.38 to −3.69σ | 7/12 to 12/12 |
 
-`987` is the one position this recording cannot settle: its best estimate is a third of the flip depth
-and six of twelve PRNs read it negative. `1008` is weak but on the right side. The shipped count
+`987` is the one position this recording cannot settle: its best estimate is a third of the per-chip
+error bar, and six of twelve PRNs read it negative. `1008` is weak but on the right side. The shipped count
 criterion (held-out gain below) stops at 14 and names `987` as the rule position it cannot confirm,
 while the likelihood on the rule's own chips prefers 15 over 14 by 36:1 — the difference between
 those two criteria is the honest width of the answer here.
@@ -372,17 +377,10 @@ and its recovered count from 13 to 14 when the fix landed.
 ### 13, 14 or 15: fixed-mask likelihood
 
 The ranking-based count search answers "how many chips does a ranking support", which is not the same
-question as "is this named chip flipped". With the chips fixed (section 2a of `correctness.py`), the
-whole-mask log-likelihood ratio for sample 2 is:
-
-| mask | log-likelihood ratio |
-| --- | --- |
-| 13 chips (rule minus 987 and 1008) | +273.7 |
-| 14 chips (+1008) | +280.7, i.e. **1075:1** over 13 |
-| 15 chips (+987) | +284.3, i.e. **36:1 for** including 987 over 14 |
-
-So sample 2 prefers the full 15-chip set over the 13-chip set by about **4e4:1**, and prefers 15 over
-14 by 36:1. The ranking search still reports P(14) = 0.9996, P(15) = 0.0003, because it has to
+question as "is this named chip flipped". The per-chip log-likelihood ratio is tabulated once, further
+down in "Second recording: 14 strong flips, 987 weak but kept" (the table with the `reading` column).
+In short: sample 2 prefers the full 15-chip set over the 13-chip set by about **4e4:1**, and prefers 15
+over 14 by 36:1. The ranking search still reports P(14) = 0.9996, P(15) = 0.0003, because it has to
 *rediscover* which 1023 positions are in play and `987` ranks fifteenth there. Both statements are
 true and they answer different questions: the count this file can establish on its own is 14, the mask
 it fits best among the rule's chips is 15, and the 15-chip rule is not contradicted by any measurement
@@ -392,9 +390,10 @@ in the file.
 
 For sample 1, derive the mask from 11 satellites and test the 12th:
 
-- held-out correlation gain: **+0.188 to +0.338 dB**, mean +0.249 dB (per-PRN waveform fit, not the
-  chip-domain mask gain)
-- chip-domain mask gain: **+0.244 dB** against a random-mask null of −0.29 to −0.19 dB
+- per-PRN amplitude-ratio gain (in-sample: all twelve PRNs fitted at once, so not a held-out number):
+  **+0.188 to +0.338 dB**, mean +0.249 dB (`evidence.per_prn_gain_db`)
+- chip-domain mask gain, the held-out number: **+0.244 dB** (`rule.held_out_gain_db`) against a
+  random-mask null of about -0.3 to -0.2 dB
 
 A wrong mask flips wrong chips and loses correlation. The held-out gain means the mask explains
 satellites it was not fitted on.
@@ -411,7 +410,9 @@ power ratio             = 0.9422  = -0.259 dB
 ```
 
 Signal level on the composite: measured **+0.214 to +0.370 dB** with the truth-modified replica, mean
-+0.277 dB. On a clean single satellite: exactly +0.259 dB.
++0.277 dB (`analysis/explain.py`, a different estimator from the per-PRN fit above; its mean sits
+just above the 0.259 dB ceiling because the replica is scored against the same record it was fitted
+to). On a clean single satellite: exactly +0.259 dB.
 
 `python -m analysis.explain` puts the whole explanation in one table per recording, with no truth
 file: explained power and its correlation with the recording, residual against the noise variance,
@@ -424,7 +425,8 @@ permutation null over random chip masks.
 
 **Split-half.** Recover the mask from code periods 0-3 only, score it on periods 4-7, and reverse.
 On recording 1 both halves independently return slope 2 and **exactly the same 15 positions**; the
-transfer gain is **+0.243 dB** and **+0.245 dB** against a random-mask null of −0.30 to −0.18 dB, and
+transfer gain is **+0.243 dB** and **+0.245 dB** against a random-mask null of −0.30 to −0.18 dB (a
+second draw from the same null experiment as above; the two draws overlap), and
 the out-of-sample count is 15 in both directions with 14 and 16 both 0.02 dB behind.
 On recording 2 the halves are much weaker (half the periods is 3 dB less): periods 0-3 return 13 chips
 and periods 4-7 return 8, with transfer gains of +0.149 and +0.161 dB and out-of-sample counts of 14
@@ -467,6 +469,7 @@ and running the real chain on them.
 | recording 1 | 55 dB-Hz | 15 positions | +0.98 (chip 987) | 15 |
 | recording 2 | 47.5 dB-Hz | 15 positions assumed | **+0.14** (chip 987) | 14 |
 | 100 known-truth trials | 47.5 dB-Hz | 15 | median +0.44, 5th pct +0.17, worst +0.10 | 15 in 89, 14 in 2, 16 in 7, 17 in 2 |
+| 1000 known-truth trials | 47.5 dB-Hz | 15 | exact set 839/1000; 75 drop one chip, 9 drop two, 76 add extras, 1 swap | supersedes the 100-trial row above |
 | 100 known-truth trials | 55 dB-Hz | 15 | median +0.77, worst +0.61 | 15 in 100 |
 | 12-PRN test fixture | 75 dB-Hz | 15 per PRN, independent | greedy test finds 179 of 180, 43 false | no shared rule to recover |
 
@@ -482,8 +485,9 @@ What the table says:
 - At 55 dB-Hz the weakest true chip never fell below +0.61 and the count was right in 100 of 100, which
   is why recording 1 settles all fifteen positions and recording 2 needs the rule to settle the last
   one.
-- The 75 dB-Hz fixture shows the ceiling: with 1.57x more amplitude per chip the per-PRN greedy test
-  alone finds 179 of 180 true flips, and the shared rule is not needed to decide them.
+- The 75 dB-Hz fixture shows the ceiling: with **10x the amplitude per chip** (75 dB-Hz against 55) the
+  per-PRN greedy test alone finds 179 of 180 true flips, and the shared rule is not needed to decide
+  them.
 
 ## Synthetic 55 dB-Hz shared-mask scan
 
@@ -508,6 +512,10 @@ Nominal cancellation, then read each satellite independently. Three noise seeds 
 | C/N0 | top-15 hits/180 | false | exact codes |
 | --- | --- | --- | --- |
 | 75 dB | 172–173 | 7–8 | 7/12 |
+
+(The 179-of-180, 43-false row above and the 172–173, 7–8 row here are the same fixture scored by two
+different selectors: keep every positive analytic score, versus keep only the 15 strongest chips. The
+second is the one that matches what the pipeline does.)
 | 68 dB | 171–173 | 7–9 | 7/12 |
 | 65 dB | 170–173 | 7–10 | 6–7/12 |
 | 62 dB | 169–174 | 6–11 | 4–8/12 |
@@ -561,7 +569,7 @@ Single-satellite chip repair is not reliable at 55 dB-Hz. The common rule is wha
 ## Tests and coverage
 
 ```bash
-.venv/Scripts/python.exe -m pytest
+.venv/Scripts/python.exe -m pytest      # create the venv first: see README, Setup
 ```
 
 Current result:
@@ -583,14 +591,14 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 
 | axis | result (baseline: 12 PRNs, 55 dB-Hz, 15 chips, 8 ms) |
 | --- | --- |
-| C/N0 per PRN | 95% edge at 49.4 dB-Hz over 100 independent signals per point (`breakpoints.py`); the two-seed sweep below is exact down to 47 dB-Hz, and at 45 dB-Hz recall falls to 0.73-0.80 |
+| C/N0 per PRN | exact in both seeds down to 51 dB-Hz (at 49 and 47 one seed carried one extra chip: precision 0.94, recall 1.00); 95% edge 49.4 dB-Hz over 100 independent signals per point; at 45 dB-Hz 26 of 100 runs recover every chip |
 | flipped chips per PRN | exact in both seeds to 160; 95% edge 140 chips; the shift search fails at 320; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
-| PRNs at 52 dB-Hz | exact in both seeds from 4 to 30; 95% edge at 7 PRNs; 1 PRN cannot define a shift, 2-3 miss 1-3 chips, 40+ start losing detections |
-| record length | exact in both seeds from 4 ms; 95% edge 5 code periods (4 ms gives 94 of 100); 2 ms loses 13-40% of the chips |
+| PRNs at 52 dB-Hz | exact in both seeds from 4 to 30; 95% edge at 7 PRNs; exact recovery stops at 36 PRNs (32 of 100 then 0 of 100); 1 PRN cannot define a shift, 2-3 miss 1-3 chips |
+| record length | exact in both seeds from 4 ms; 95% edge 5 code periods (4 ms gives 94 of 100); at 2 ms one chip is lost at most, but the Doppler fit degrades |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
 | Doppler | exact at 0 Hz, within +-2 Hz and within +-20 Hz; found to about +-5.5 kHz, nothing at +-5.8 kHz |
-| data bit flipping mid-record | exact; worst Doppler error 3.7 Hz (100 Hz before the fix below) |
+| data bit flipping mid-record | exact; worst Doppler error 3.7 Hz across the bit sweeps (2.85 Hz in the bit-change sweep alone; 100 Hz before the fix in bug 7 above) |
 | data bits changing at random per PRN | exact at 8 and 16 ms; at 2 ms the Doppler fit degrades (371 Hz worst) |
 | independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
 
@@ -602,8 +610,8 @@ limit is not the flip search but **detection**: 38/40 and 58/60 PRNs found at 40
 118/120 at 120, 158/160 at 160 and 197-202 out of 210. The cause is multi-access: at 52 dB-Hz a weak
 PRN's correlation peak can lose to the cross-correlation spikes of forty others, and the single-pass
 cancellation cannot repair it because it is built from those same parameters. The measured consequence
-is visible in the residual: 1.07x noise at 40 PRNs, 1.25 at 120, 1.6 at 160 and 3.2 at 210, so the
-consensus weakens and only 3-7 of the 15 chips survive at 210. One 40-PRN run also accepted a Doppler
+is visible in the residual: 1.07x noise at 40 PRNs, 1.25 at 120, 1.6 at 160 and 3.05-3.09 at 210, so the
+consensus weakens and only 4 and 11 of the 15 chips survive at 210 (one seed each). One 40-PRN run also accepted a Doppler
 6.6 kHz away from the truth for one PRN, which the verdict survived because the other 39 were clean.
 Fixing that needs an iterative cancel-and-reacquire pass; it is not done, because the assignment has 12
 PRNs and the honest statement is that the method is built for that regime.
@@ -628,18 +636,18 @@ nothing is detected, and `--max-speed-km-h` is the knob that widens the span.
 
 Widening it works. With the span asserted wide enough, offsets of +-6, +-10, +-15, +-20 and +-30 kHz
 all come back 12/12 detected, 15/15 chips, shift 2, Doppler error 1.4-3.1 Hz - the same accuracy as
-the nominal case. The price is search time (2.2 s to 2.9 s per 15-PRN recording, since the coarse grid
-grows with the span) and a slightly higher detection threshold (40.2 to 42.8 peak-to-floor, which is
-log2 of the cell count, as the false-alarm design predicts). What a wide span means physically is worth
+the nominal case. The price is search time (0.2 s to 0.6 s per 12-PRN recording, since the coarse grid
+grows with the span) and a slightly higher detection threshold: four times the span costs about one
+unit of peak-to-floor ratio, as the false-alarm design predicts. What a wide span means physically is worth
 saying: a ground receiver cannot see +-30 kHz of satellite Doppler, so a real recording with that much
 offset is showing a receiver clock error or a non-terrestrial platform. The search does not care which;
 it only has to be told how far to look.
 
 The dense-modification limit is the interesting one, and it is a soft edge rather than a threshold.
-Over 6 seeds per count, passes are 0/6 at 236 chips, 4/6 at 240, 0/6 at 244, 0/6 at 248, 2/6 at 252,
-0/6 at 256 and 1/6 at 264: non-monotonic, because which draw wins depends on where the random base
-lands, not on K alone. What collapses is the shift margin - 0.15 to 0.25 when the shift is right, 0.001
-to 0.137 when it is wrong, overlapping populations. The wrong answers are 343 and 684, about 1023/3 and
+Over 6 seeds per count, passes are 0/6 at 236 chips, 1/6 at 240, 0/6 at 244, 0/6 at 248, 0/6 at 252,
+0/6 at 256, 0/6 at 260 and 0/6 at 264: non-monotonic, because which draw wins depends on where the
+random base lands, not on K alone. What collapses is the shift margin - 0.002 to 0.030 when the shift
+is right, 0.000 to 0.121 when it is wrong, overlapping populations. The wrong answers are 343 and 684, about 1023/3 and
 2*1023/3, where PRN rolls coincide, so the true shift of 2 stops being the unique winner. Above that,
 detection fades too: flipping K chips leaves (1023 - 2K)/1023 of the nominal correlation, 0.37 at
 K=320 and 0.02 at K=500, so a nominal replica barely sees the code. Ranking shifts by the physical
