@@ -682,9 +682,9 @@ def _svg_legend(
                     f'stroke="{colour}" stroke-width="2.5" stroke-dasharray="7 5"/>'
                 )
             parts.append(
-                f'<text x="{x + 22:.1f}" y="{y}" font-size="12" fill="{muted}">{label}</text>'
+                f'<text x="{x + 22:.1f}" y="{y}" font-size="13" fill="{muted}">{label}</text>'
             )
-            x += 26 + 6.9 * len(label)
+            x += 26 + 7.5 * len(label)
 
 
 def _scatter_svg(
@@ -745,9 +745,9 @@ def _scatter_svg(
         f'<rect width="{width}" height="{height}" fill="{colours_theme["bg"]}"/>',
         f'<text x="28" y="36" font-size="17" font-weight="600" fill="{ink}">'
         f"Longer records read weaker signals</text>",
-        f'<text x="28" y="58" font-size="13" fill="{muted}">'
+        f'<text x="28" y="58" font-size="14" fill="{muted}">'
         f"{signals} recordings per point, all 15 chips exact, 12 PRNs</text>",
-        f'<text x="28" y="76" font-size="13" fill="{muted}">'
+        f'<text x="28" y="76" font-size="14" fill="{muted}">'
         f"C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>",
     ]
 
@@ -760,7 +760,7 @@ def _scatter_svg(
             f'stroke="{grid_colour}" stroke-width="1"/>'
         )
         parts.append(
-            f'<text x="{left - 12}" y="{y + 4:.1f}" text-anchor="end" font-size="12" '
+            f'<text x="{left - 12}" y="{y + 4:.1f}" text-anchor="end" font-size="13" '
             f'fill="{muted}">{cn0_tick:g}</text>'
         )
         cn0_tick += 5.0
@@ -791,16 +791,16 @@ def _scatter_svg(
         x = x_of(count)
         ours = count == ASSIGNMENT_PERIODS
         parts.append(
-            f'<text x="{x:.1f}" y="{bottom_of_plot + 22}" text-anchor="middle" font-size="12" '
+            f'<text x="{x:.1f}" y="{bottom_of_plot + 22}" text-anchor="middle" font-size="13" '
             f'font-weight="{"600" if ours else "400"}" '
             f'fill="{annotation if ours else muted}">{count}</text>'
         )
     parts += [
         f'<text x="{left + plot_width / 2:.0f}" y="{bottom_of_plot + 44}" text-anchor="middle" '
-        f'font-size="12" fill="{muted}">record length in code periods (log scale) &#183; '
+        f'font-size="13" fill="{muted}">record length in code periods (log scale) &#183; '
         f"1 period = 1 ms</text>",
         f'<text transform="translate(26 {top + plot_height / 2:.0f}) rotate(-90)" '
-        f'text-anchor="middle" font-size="12" fill="{muted}">'
+        f'text-anchor="middle" font-size="13" fill="{muted}">'
         f"C/N0 needed for exact recovery (dB-Hz)</text>",
     ]
 
@@ -811,7 +811,7 @@ def _scatter_svg(
             f'stroke="{annotation}" stroke-width="1.5"/>'
         )
         parts.append(
-            f'<text x="{column:.1f}" y="{top - 10}" text-anchor="middle" font-size="12" '
+            f'<text x="{column:.1f}" y="{top - 10}" text-anchor="middle" font-size="13" '
             f'font-weight="600" fill="{annotation}">our recordings: {ASSIGNMENT_PERIODS} ms</text>'
         )
 

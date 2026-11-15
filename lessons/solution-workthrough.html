@@ -367,6 +367,14 @@
 
 <p>At 47.5 dB-Hz the exact 15-chip set came back in 839 of 1000 trials. 75 trials dropped one true chip and added nothing. That is the miss recording 2 shows. Nine dropped two true chips. 76 kept all 15 and added extras. One reported 15 chips but swapped one. A single dropped chip is 7.5 in 100. Any mistake is 16 in 100.</p>
 
+<figure class="chart">
+<img class="chart-light" src="../assets/cn0_vs_duration_light.svg" width="900" height="544"
+  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
+<img class="chart-dark" src="../assets/cn0_vs_duration_dark.svg" width="900" height="544"
+  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
+<figcaption>At 8 code periods the floor is 49.4 dB-Hz. Recording 2 sits at 44.1 to 48 dB-Hz, below it, which is why its weakest chip is the one the count drops. Recording 1, at 54.1 to 54.9, is clear of the floor. Each point is 100 independent recordings, scored by an exact 15-chip recovery.</figcaption>
+</figure>
+
 <p>At 55 dB-Hz the 100 trials never dropped a chip, and the lowest true flip stayed above +0.61. Recording 1 reads chip 987 at +0.98. Same chip, stronger signal, obvious flip.</p>
 
 <p>Chip 1008 is not in that tail. Nine of twelve PRNs read it negative, and adding it raises the held-out gain. The chip that looks missing is 987.</p>
@@ -388,13 +396,7 @@
 
 <p>A run passes only when every PRN is found, none extra, the shift is the true shift, and the recovered flip set matches the truth exactly. Doppler error, residual power and flip precision are recorded either way. One axis moves at a time. Everything else stays at the assignment case: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms, slope 2.</p>
 
-<figure class="chart">
-<img class="chart-light" src="../assets/cn0_vs_duration_light.svg" width="900" height="544"
-  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
-<img class="chart-dark" src="../assets/cn0_vs_duration_dark.svg" width="900" height="544"
-  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
-<figcaption>How long a record must be to read a given C/N0. Each point is 100 independent recordings at 12 PRNs, scored by an exact 15-chip recovery. The two bands are the supplied files. Drawn by <code>breakpoints.py</code> into <code>assets/cn0_vs_duration_light.svg</code> and <code>_dark.svg</code>.</figcaption>
-</figure>
+
 
 <table>
 <tbody>

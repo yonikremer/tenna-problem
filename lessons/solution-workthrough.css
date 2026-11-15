@@ -281,8 +281,14 @@ figure.chart {
 figure.chart img {
   display: block;
   width: 100%;
+  /* the sheet is drawn at 900 px; below this the labels stop being legible, so scroll instead */
+  min-width: 720px;
   height: auto;
   border: 1px solid var(--line);
+}
+
+figure.chart {
+  overflow-x: auto;
 }
 
 /* one file per theme, drawn with its own background by breakpoints.py */
