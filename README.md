@@ -107,7 +107,7 @@ and limits: `FINDINGS.md`, "Double-checking the answer against the file's own se
 | `gnss/tables.py` | CSV, JSON and array artifacts, including the 12 x 1023 transmitted codes |
 | `gnss/vendor.py` | locates the vendored third-party code generator |
 | `analysis/` | exploratory scripts that measure one thing each (see `analysis/__init__.py`) |
-| `tests/` | 127 tests, synthetic generators with known truth, 97% coverage of `gnss/` |
+| `tests/` | 181 tests, synthetic generators with known truth, 95% coverage of `gnss/` |
 | `vendor/` | third-party MIT code (Peter Monta, GNSS-DSP-tools): the C/A code tables come from here |
 | `docs/` | working notes written while solving |
 

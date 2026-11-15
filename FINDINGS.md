@@ -567,8 +567,8 @@ Single-satellite chip repair is not reliable at 55 dB-Hz. The common rule is wha
 Current result:
 
 ```text
-141 passed
-Total coverage 96.4% of gnss/
+181 passed
+Total coverage 95.4% of gnss/
 Required minimum 90% (pytest.ini)
 ```
 
@@ -583,7 +583,7 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 
 | axis | result (baseline: 12 PRNs, 55 dB-Hz, 15 chips, 8 ms) |
 | --- | --- |
-| C/N0 per PRN | exact down to 47 dB-Hz; at 45 dB-Hz recall falls to 0.73-0.80 |
+| C/N0 per PRN | 95% edge at 49.4 dB-Hz over 100 independent signals per point (`breakpoints.py`); the two-seed sweep below is exact down to 47 dB-Hz, and at 45 dB-Hz recall falls to 0.73-0.80 |
 | flipped chips per PRN | exact for 3 to 240 of 1023; at 320 the shift search fails; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
 | PRNs at 52 dB-Hz | exact from 6 to 30 PRNs; 1 PRN cannot define a shift, 2-5 miss 1-3 chips, 40+ start losing detections |
 | record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
