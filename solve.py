@@ -16,9 +16,12 @@ For each recording it runs the full chain, using the package modules for every s
 
 Outputs land next to the recording:
 
-  <name>_acquisition.csv   every detected PRN with its measured parameters
-  <name>_joint_flips.csv   one row per recovered flipped chip
-  <name>_solution.json     the same answer as one machine-readable object
+  <name>_acquisition.csv          every detected PRN with its measured parameters
+  <name>_joint_flips.csv          one row per recovered flipped chip
+  <name>_modified_positions.csv   the same as PRN and chip index only
+  <name>_transmitted_codes.csv    12 x 1023 chips: nominal, transmitted, flip flag
+  <name>_transmitted_codes.npz    the same codes as two (PRNs, chips) arrays
+  <name>_solution.json            the same answer as one machine-readable object
 
 Exit status is 0 when every recording's recovered base is a subset of the Fibonacci rule, and 1
 when a recording supports a position the rule cannot produce, so the script can be used as a check.
@@ -37,7 +40,7 @@ from gnss.acquisition import (
     parse_satellite_spec,
     report,
 )
-from gnss.rule import explain_base
+from gnss.rule import closed_form_flips, explain_base
 
 
 def solve(recording: str, satellites=None, max_speed_km_h=None, false_alarm_probability=None):
@@ -83,10 +86,14 @@ def print_report(recording: str, found, recovery, pattern, check) -> list:
 
 
 def save(recording: str, found, recovery, pattern, check) -> dict:
-    """Write the three artifacts and return their paths."""
+    """Write every artifact and return their paths."""
+    rule = recovery.rule
+    closed_form = {prn: sorted(closed_form_flips(prn)) for prn in sorted(rule.flips)}
+    prns, original, transmitted = tables.transmitted_codes(found.lattice, rule.flips)
     paths = {
         "acquisition": tables.write_acquisition(recording, found.detections),
-        "flips": tables.write_flips(recording, recovery.rule),
+        "flips": tables.write_flips(recording, rule),
+        **tables.write_codes(recording, found.lattice, rule.flips),
     }
     payload = {
         "recording": recording,
@@ -100,14 +107,30 @@ def save(recording: str, found, recovery, pattern, check) -> dict:
         },
         "detected_prns": sorted(found.detected),
         "acquisition": [detection.as_row() for detection in found.detections if detection.detected],
+        # one row per PRN: the whole 1023-chip code before and after the modification, plus the
+        # indexes that differ. `original_code` comes from the published IS-GPS-200 C/A table.
+        "codes": [
+            {
+                "prn": int(prn),
+                "transmitted_code": transmitted[row].tolist(),
+                "original_code": original[row].tolist(),
+                "modified_indexes": sorted(int(chip) for chip in rule.flips[prn]),
+            }
+            for row, prn in enumerate(prns)
+        ],
         "rule": {
-            "slope_chips_per_prn": recovery.rule.slope,
-            "alignment_score": round(recovery.rule.score, 4),
-            "flipped_chips_per_prn": recovery.rule.count,
-            "held_out_gain_db": round(recovery.rule.count_scores[recovery.rule.count], 4),
-            "base_pattern": sorted(recovery.rule.base),
+            "slope_chips_per_prn": rule.slope,
+            "alignment_score": round(rule.score, 4),
+            "flipped_chips_per_prn": rule.count,
+            "held_out_gain_db": round(rule.count_scores[rule.count], 4),
+            "base_pattern": sorted(rule.base),
             "flips": {
-                str(prn): sorted(recovery.rule.flips[prn]) for prn in sorted(recovery.rule.flips)
+                str(prn): sorted(rule.flips[prn]) for prn in sorted(rule.flips)
+            },
+            # the closed form from gnss.rule, per PRN, and whether it matches what the data gave
+            "closed_form_flips": {str(prn): chips for prn, chips in closed_form.items()},
+            "closed_form_matches": {
+                str(prn): closed_form[prn] == sorted(rule.flips[prn]) for prn in closed_form
             },
         },
         "pattern": {

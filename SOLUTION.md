@@ -19,19 +19,24 @@ task: find the satellites, recover the modification, state the rule, and prove i
 
 ## 2. The answer
 
-PRN `s` flips the chips
+`prn_index` is the PRN number, starting at 1.
 
-```text
-base[k] - 2 * (s - 1)   mod 1023
+```python
+def flipped_chips(prn_index: int) -> list[int]:
+    x = 1022 - 2 * prn_index
+    chips = [x]
+    i = 1
+    while x - fibonacci(i) >= 0:
+        x = x - fibonacci(i)
+        chips.append(x)
+        i += 1
+    return chips
 ```
 
-where `base` is the prefix sums of the Fibonacci numbers counted backwards from chip 1020:
+`flipped_chips(1)` is
 
 ```text
-base = { (1020 - sum(Fibonacci[0:k])) mod 1023 : k = 0..14 }
-Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
-
-base = 34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
+34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
 ```
 
 Fifteen positions, shifted **two chips per PRN index**. Recording 1 supports all fifteen; recording 2
@@ -236,7 +241,7 @@ is decided, and the one position that recording cannot confirm is `987` (see sec
 The recovered base pattern is not arbitrary. Take the Fibonacci numbers, accumulate them, and walk
 backwards from chip 1020:
 
-| k | Fibonacci | cumulative | chip = (1020 - cumulative) mod 1023 |
+| k | Fibonacci | cumulative | chip = 1020 - cumulative |
 | --- | --- | --- | --- |
 | 0 | – | 0 | 1020 |
 | 1 | 1 | 1 | 1019 |
@@ -261,7 +266,7 @@ position is a sensitivity limit, not a different pattern.
 
 The generator's structure is therefore: a 15-position sparse mask, the mask shifted by two chips per
 PRN index. Equivalently, chip `i` of PRN `s` is flipped when
-`(i + 2(s-1)) mod 1023` is a backward cumulative Fibonacci sum. The Fibonacci interpretation is an
+`i + 2(s-1)` is a backward cumulative Fibonacci sum. The subtraction does not wrap: the smallest base chip is 34 and the largest shift on these PRNs is 22, so each PRN still has exactly 15 flips. A modulo wrap would invent further indexes, and those indexes are not flipped. The Fibonacci interpretation is an
 observation about the recovered positions; it is not proof of the generator's intent, and
 `FINDINGS.md` says so.
 
@@ -282,7 +287,8 @@ The recovered model leaves noise and nothing else. The nominal model leaves extr
 power is exactly the part of the signal the flips were hiding.
 
 **Correlation gain, with a known ceiling.** Fifteen flipped chips change a code at 15 of 1023 places,
-so the recovered code correlates with amplitude `(1023 - 2*15)/1023 = 993/1023` of the nominal one:
+so they agree on `1023 - 15 = 1008` chips. The correlation is not that count: each disagreement
+contributes -1 instead of +1, so the inner product is `(1023 - 2*15)/1023 = 993/1023` of the nominal one:
 
 ```text
 20 * log10(993/1023) = -0.259 dB      i.e. a ceiling of +0.259 dB of gain over the nominal code
@@ -300,7 +306,7 @@ Generated recordings with known truth, one axis at a time (`python benchmark.py`
 
 | axis | result |
 | --- | --- |
-| C/N0 per PRN | exact in 57 of 60 known-truth runs at 47.5 dB-Hz, 30 of 30 at 55; at 45 dB-Hz 73–80% of chips |
+| C/N0 per PRN | exact 15-chip set in 839 of 1000 known-truth runs at 47.5 dB-Hz (75 drop one chip, 76 add extras), 100 of 100 at 55; at 45 dB-Hz 73–80% of chips. 47.5 is inside recording 2's 44.1–48.0 dB-Hz range (mean 46.5), near its loud end, so it tests the easy part of that file |
 | flipped chips per PRN | exact to ~240 of 1023; soft edge above, detection fails from 400 |
 | PRNs at 52 dB-Hz | exact from 6; 2–4 PRNs miss 7–13% |
 | record length | 4 ms and longer exact; 2 ms misses 13–40% |

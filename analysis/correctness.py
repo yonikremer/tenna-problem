@@ -82,7 +82,8 @@ def scale_of(found, periods: int) -> float:
 def position_evidence(vectors: dict, amplitude: dict, sigma: float, slope: int, positions) -> dict:
     """Evidence for each named chip, summed over all PRNs, in log-likelihood ratio units.
 
-    Chip `c` sits at `(c - slope * (prn - first)) mod 1023` in PRN `prn`'s own coordinates. For a
+    Chip `c` sits at `c - slope * (prn - first)` in PRN `prn`'s own coordinates. The `%` below only
+    keeps a negative index inside the array. For the assignment slope it does not add flips. For a
     chip value `v`, the log-likelihood ratio between "flipped, depth a" and "unflipped" is
     `-2 * a * v / sigma^2`, so a negative `v` supports a flip.
     """

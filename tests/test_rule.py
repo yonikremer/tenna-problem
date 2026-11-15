@@ -41,6 +41,33 @@ def test_rule_flips_shifts_each_prn_in_code_coordinates():
     assert all(0 <= chip < rule.CODE_LENGTH for chip in rule.rule_flips(base, 700, 3))
 
 
+def test_fibonacci_numbers_start_at_one_one():
+    assert [rule.fibonacci(n) for n in range(1, 8)] == [1, 1, 2, 3, 5, 8, 13]
+
+
+def test_closed_form_flips_reproduces_the_base_shifted_per_prn():
+    base = set(rule.fibonacci_base())
+    for prn in range(1, 13):
+        assert sorted(rule.closed_form_flips(prn)) == sorted(
+            (chip - 2 * (prn - 1)) for chip in base
+        )
+
+
+def test_closed_form_flips_does_not_wrap_and_stops_at_fifteen():
+    # the next Fibonacci step after 34 is 610, and 34 - 610 is negative; a modulo rule would
+    # invent an extra chip, so every PRN must have exactly fifteen
+    for prn in range(1, 13):
+        chips = rule.closed_form_flips(prn)
+        assert len(chips) == 15
+        assert all(0 <= chip < rule.CODE_LENGTH for chip in chips)
+        assert len(set(chips)) == 15
+
+
+def test_closed_form_flips_agrees_with_the_recovered_base_pattern():
+    flipped = set(rule.closed_form_flips(1))
+    assert flipped == set(rule.fibonacci_base())
+
+
 def test_explain_base_confirms_a_matching_pattern():
     explanation = rule.explain_base(rule.fibonacci_base())
     assert explanation.matches
@@ -146,7 +173,14 @@ def test_rule_helpers_report_shifts_positions_and_the_cutoff():
     assert recovered.first_prn == 1
     assert recovered.shift_of(2) == 2
     assert recovered.positions(2) == {3, 198, 598}
-    assert recovered.table() == [(1, 0, 5), (1, 0, 200), (1, 0, 600), (2, 2, 3), (2, 2, 198), (2, 2, 598)]
+    assert recovered.table() == [
+        (1, 0, 5, 5),
+        (1, 0, 200, 200),
+        (1, 0, 600, 600),
+        (2, 2, 3, 5),
+        (2, 2, 198, 200),
+        (2, 2, 598, 600),
+    ]
     weakest, strongest = recovered.cutoff()
     assert weakest < 0.0
     assert strongest >= 0.0

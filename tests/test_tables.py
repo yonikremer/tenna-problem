@@ -3,6 +3,7 @@
 import csv
 import json
 
+import numpy as np
 import pytest
 
 from gnss import acquisition, pipeline, tables
@@ -57,6 +58,48 @@ def test_flip_table_round_trips(shared_55):
     }
 
 
+def test_codes_artifact_carries_every_chip_of_every_prn(shared_55):
+    recording = shared_55["recording"]
+    rule = shared_55["recovery"].rule
+    paths = tables.write_codes(recording, shared_55["lattice"], rule.flips)
+    length = shared_55["lattice"].code_length_in_chips
+
+    with open(paths["codes"], encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert set(rows[0]) == set(tables.CODES_COLUMNS)
+    assert len(rows) == 12
+    assert [int(row["prn"]) for row in rows] == list(range(1, 13))
+    for row in rows:
+        original = [int(value) for value in row["original_code"].split()]
+        transmitted = [int(value) for value in row["transmitted_code"].split()]
+        modified = [int(value) for value in row["modified_indexes"].split()]
+        assert len(original) == length
+        assert len(transmitted) == length
+        assert set(original) <= {-1, 1}
+        assert set(transmitted) <= {-1, 1}
+        assert int(row["chips"]) == length
+        assert int(row["modified_count"]) == len(modified)
+        assert modified == sorted(rule.flips[int(row["prn"])])
+        assert [i for i in range(length) if original[i] != transmitted[i]] == modified
+
+    expected = {(prn, chip) for prn in rule.flips for chip in rule.flips[prn]}
+    saved = np.load(paths["codes_matrix"])
+    assert saved["transmitted"].shape == (12, length)
+    assert saved["nominal"].shape == saved["transmitted"].shape
+    assert int((saved["transmitted"] != saved["nominal"]).sum()) == len(expected)
+    assert (saved["transmitted"] ** 2 == 1).all()
+
+
+def test_positions_artifact_is_one_row_per_modified_chip(shared_55):
+    recording = shared_55["recording"]
+    rule = shared_55["recovery"].rule
+    path = tables.write_positions(recording, rule.flips)
+    with open(path, encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert set(rows[0]) == set(tables.POSITIONS_COLUMNS)
+    assert len(rows) == 12 * rule.count
+
+
 def test_a_bad_destination_is_reported(tmp_path):
     with pytest.raises(SystemExit):
         tables._write_rows(str(tmp_path / "missing" / "out.csv"), tables.FLIPS_COLUMNS, [])
@@ -69,14 +112,58 @@ def test_a_missing_acquisition_table_is_reported(tmp_path):
         tables.read_detections(str(tmp_path / "absent.nc"))
 
 
+def write_summary(shared_55) -> dict:
+    """Run `solve.save` for the fixture and return the JSON it wrote, so no test leans on leftover files."""
+    from gnss import verification
+    from gnss.rule import explain_base
+    from solve import save
+
+    recovery = shared_55["recovery"]
+    found = recovery.acquisition
+    save(
+        shared_55["recording"],
+        found,
+        recovery,
+        explain_base(recovery.rule.base),
+        verification.verify(found, recovery.rule.flips),
+    )
+    with open(tables.summary_path(shared_55["recording"]), encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def test_summary_path_matches_what_solve_writes(shared_55):
-    recording = shared_55["recording"]
-    with open(tables.summary_path(recording), encoding="utf-8") as handle:
-        payload = json.load(handle)
-    assert payload["recording"] == recording
-    assert set(payload) == {"recording", "sampling", "detected_prns", "acquisition", "rule", "pattern", "evidence"}
+    payload = write_summary(shared_55)
+    assert payload["recording"] == shared_55["recording"]
+    assert set(payload) == {
+        "recording", "sampling", "detected_prns", "acquisition", "codes", "rule", "pattern", "evidence"
+    }
     assert payload["rule"]["flipped_chips_per_prn"] == len(payload["rule"]["base_pattern"])
     assert payload["pattern"]["matches"] is True
+    # the closed form is written next to the recovered list, so a reader can compare them
+    assert set(payload["rule"]["closed_form_flips"]) == set(payload["rule"]["flips"])
+    assert all(payload["rule"]["closed_form_matches"].values())
+
+
+def test_summary_carries_the_whole_code_of_every_prn(shared_55):
+    codes = write_summary(shared_55)["codes"]
+
+    length = shared_55["lattice"].code_length_in_chips
+    assert [row["prn"] for row in codes] == list(range(1, 13))
+    assert set(codes[0]) == {"prn", "transmitted_code", "original_code", "modified_indexes"}
+    for row in codes:
+        assert len(row["original_code"]) == length
+        assert len(row["transmitted_code"]) == length
+        assert set(row["original_code"]) <= {-1, 1}
+        assert set(row["transmitted_code"]) <= {-1, 1}
+        differing = [
+            index
+            for index, (before, after) in enumerate(
+                zip(row["original_code"], row["transmitted_code"], strict=True)
+            )
+            if before != after
+        ]
+        assert differing == row["modified_indexes"]
+        assert differing == sorted(shared_55["recovery"].rule.flips[row["prn"]])
 
 
 def test_recovery_reports_a_recording_without_satellites(shared_55):

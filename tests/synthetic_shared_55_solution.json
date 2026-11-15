@@ -363,7 +363,7 @@
   },
   "pattern": {
     "name": "backward cumulative Fibonacci prefix sums",
-    "formula": "(1020 - sum(Fibonacci[0:k])) mod 1023 for k = 0..14",
+    "formula": "1020 - sum(Fibonacci[0:k]) for k = 0..14",
     "matches": true,
     "increments": [
       1,

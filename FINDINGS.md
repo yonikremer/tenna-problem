@@ -9,16 +9,18 @@ first section below.
 
 The two recordings use the **same chip-flip rule**:
 
-```text
-PRN s flips chip positions   (base[k] - 2 * (s - 1)) mod 1023
-```
+`prn_index` starts at 1.
 
-The base is a 15-position set that follows the cumulative prefix sums of Fibonacci numbers backwards
-from 1020:
-
-```text
-base = { (1020 - sum(Fibonacci[0:k])) mod 1023 : k = 0..14 }
-Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
+```python
+def flipped_chips(prn_index: int) -> list[int]:
+    x = 1022 - 2 * prn_index
+    chips = [x]
+    i = 1
+    while x - fibonacci(i) >= 0:
+        x = x - fibonacci(i)
+        chips.append(x)
+        i += 1
+    return chips
 ```
 
 Sample 1 (`data/gnss_observation.nc`) uses all **15** positions. Sample 2 (`data/gnss_observation2.nc`) has
@@ -354,12 +356,12 @@ PRN carries a spurious navigation-bit step, the cancellation residual sits at th
 the two halves disagree with each other in the way independent noise does — not in the way a stable
 attenuation would.
 
-`python -m analysis.weakest_chip` then asks how often a *truly* flipped chip reads this low. Sixty
-synthetic recordings at sample 2's own amplitude (47.5 dB-Hz per PRN) and its Dopplers, run through
+`python -m analysis.weakest_chip` then asks how often a *truly* flipped chip reads this low. A rerun
+of 100 synthetic recordings at sample 2's own amplitude (47.5 dB-Hz per PRN) and its Dopplers, through
 the real chain: the weakest of the fifteen true chips has median **+0.44**, 5th percentile +0.17,
-minimum **+0.12**, and in **0 of 60 trials does a true chip read below +0.04**. Reported counts: 15 in
-57 trials, and 14, 16 and 17 once each. Sample 2's +0.14 at chip `987` sits at the first percentile of
-that spread — unlucky, but inside it.
+minimum **+0.10**, and in **0 of 100 trials does a true chip read below +0.04**. Reported counts: 15 in
+89 trials, 14 in 2, 16 in 7, 17 in 2. Sample 2's +0.14 at chip `987` is inside that spread, near the
+low end.
 
 Those numbers are after the code-phase fix described below. Before it the same experiment, 60 trials at
 the same strength, gave a median weakest chip of +0.20, a minimum of −0.27, some chip below +0.04 in
@@ -401,7 +403,7 @@ For sample 2 with K=14, the per-PRN waveform gains are **+0.078 to +0.439 dB**, 
 
 ## Correlation gain from using the correct modified code
 
-Code level: nominal and 15-flip code agree on 993/1023 chips.
+Code level: nominal and 15-flip code agree on 1008/1023 chips and disagree on 15. The inner product is not that count: each disagreement contributes -1 instead of +1, so 1008 - 15 = 993.
 
 ```text
 normalised correlation = 993/1023 = 0.97067
@@ -464,18 +466,20 @@ and running the real chain on them.
 | --- | --- | --- | --- | --- |
 | recording 1 | 55 dB-Hz | 15 positions | +0.98 (chip 987) | 15 |
 | recording 2 | 47.5 dB-Hz | 15 positions assumed | **+0.14** (chip 987) | 14 |
-| 60 known-truth trials | 47.5 dB-Hz | 15 | median +0.44, 5th pct +0.17, worst +0.12 | 15 in 57, 14/16/17 once each |
-| 30 known-truth trials | 55 dB-Hz | 15 | median +0.75, worst +0.64 | 15 in 30 |
+| 100 known-truth trials | 47.5 dB-Hz | 15 | median +0.44, 5th pct +0.17, worst +0.10 | 15 in 89, 14 in 2, 16 in 7, 17 in 2 |
+| 100 known-truth trials | 55 dB-Hz | 15 | median +0.77, worst +0.61 | 15 in 100 |
 | 12-PRN test fixture | 75 dB-Hz | 15 per PRN, independent | greedy test finds 179 of 180, 43 false | no shared rule to recover |
 
 What the table says:
 
-- A truly flipped chip at 47.5 dB-Hz never read below **+0.12** in 60 trials. Recording 2's +0.14 at
-  chip `987` is at the first percentile — the unluckiest chip in thirty rule-chips across the two
-  files, and still positive.
-- The **count** at 47.5 dB-Hz came back as 15 in 57 of 60 trials. Recording 2's 14 is the one-in-sixty
-  tail, which is exactly what a single chip at the first percentile of its own distribution produces.
-- At 55 dB-Hz the weakest true chip never fell below +0.64 and the count was right in 30 of 30, which
+- A truly flipped chip at 47.5 dB-Hz never read below **+0.10** in 100 trials. Recording 2's +0.14 at
+  chip `987` is inside that spread, near the low end, and still positive.
+- A later exact-set check, 1000 trials at 47.5 dB-Hz, returned the planted 15 chips in 839 trials.
+  75 dropped one true chip and added nothing. 9 dropped two. 76 kept all 15 and added extras.
+  One reported 15 chips but swapped one. Recording 2's single drop is that 7.5% case, not a rare fluke.
+  The trials ran at one level only: 47.5 dB-Hz is near the loud end of recording 2's 44.1–48.0
+  dB-Hz range (mean 46.5), so the fainter PRNs in that file are not represented.
+- At 55 dB-Hz the weakest true chip never fell below +0.61 and the count was right in 100 of 100, which
   is why recording 1 settles all fifteen positions and recording 2 needs the rule to settle the last
   one.
 - The 75 dB-Hz fixture shows the ceiling: with 1.57x more amplitude per chip the per-PRN greedy test

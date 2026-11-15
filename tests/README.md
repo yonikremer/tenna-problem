@@ -56,7 +56,7 @@ gain. The 15 consensus chips are then separated from the rest by a wide margin.
 2. Extracts one soft value per chip for each PRN.
 3. Searches the single common slope that makes the aligned sum sharpest.
 4. Takes the 15 most negative consensus chips as the base pattern.
-5. Maps the base back to every PRN with `flip = (base - 2*(PRN - 1)) mod 1023`.
+5. Maps the base back to every PRN with `flip = base - 2*(PRN - 1)`. For these PRNs the result does not wrap, so each PRN still has 15 flips.
 
 Result on `synthetic_shared_55.nc` (55.0 dB-Hz, noise 1.0): **exact 15/15 flips for all 12 PRNs**,
 and the recovered modified codes reduce the reconstruction residual to the noise level. The same
@@ -92,8 +92,9 @@ short-record paths.
 
 ## Correlation gain and chip repair
 
-Code level: the truth-modified code and the nominal code agree on 993 of 1023 chips, so their
-normalised cross-correlation is `993/1023 = 0.97067`, i.e. **2.93% lower**. In power that is
+Code level: the truth-modified code and the nominal code agree on 1008 of 1023 chips and
+disagree on 15. The inner product counts each disagreement as -1 instead of +1, so
+`1008 - 15 = 993`. Their normalised cross-correlation is `993/1023 = 0.97067`, i.e. **2.93% lower**. In power that is
 `0.97067^2 = 0.9422`, a **0.259 dB** loss.
 
 Signal level, using the truth-modified replica on the composite recording:
@@ -312,7 +313,7 @@ The rule itself keeps all 15; `joint_flips.main` prints:
 
 `warning: weak evidence for base chips 987 (consensus is not negative in this recording)`
 
-Per PRN: `flip = (base - 2*(PRN-1)) mod 1023`.
+Per PRN: `flip = base - 2*(PRN-1)`. The subtraction does not wrap.
 
 The count is not certain: 1008 is only about 3 sigma from both models, so 13 is possible. 987 is kept
 because the pattern is 15 positions, but it carries a warning: this recording does not independently
