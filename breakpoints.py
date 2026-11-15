@@ -614,13 +614,11 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         f'sans-serif">',
         f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
         f'<text x="28" y="36" font-size="17" font-weight="600" fill="{ink}">'
-        f"Lowest C/N0 that still recovers all 15 chips</text>",
+        f"Longer records read weaker signals</text>",
         f'<text x="28" y="58" font-size="13" fill="{muted}">'
-        f'{signals} independent recordings per point &#183; a point counts only if every PRN, the '
-        f'shift and all 15 chips are exact &#183; 12 PRNs</text>',
+        f"{signals} recordings per point, all 15 chips exact, 12 PRNs</text>",
         f'<text x="28" y="76" font-size="13" fill="{muted}">'
-        f"C/N0 at which {round(criterion * signals)} of {signals} recordings recover, by record "
-        f"length</text>",
+        f"C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>",
     ]
 
     # The two supplied recordings, as horizontal bands over the whole width: their own C/N0 span.

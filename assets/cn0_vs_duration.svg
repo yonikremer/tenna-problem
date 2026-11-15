@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
 <rect width="900" height="520" fill="#ffffff"/>
-<text x="28" y="36" font-size="17" font-weight="600" fill="#1f2328">Lowest C/N0 that still recovers all 15 chips</text>
-<text x="28" y="58" font-size="13" fill="#57606a">100 independent recordings per point &#183; a point counts only if every PRN, the shift and all 15 chips are exact &#183; 12 PRNs</text>
-<text x="28" y="76" font-size="13" fill="#57606a">C/N0 at which 95 of 100 recordings recover, by record length</text>
+<text x="28" y="36" font-size="17" font-weight="600" fill="#1f2328">Longer records read weaker signals</text>
+<text x="28" y="58" font-size="13" fill="#57606a">100 recordings per point, all 15 chips exact, 12 PRNs</text>
+<text x="28" y="76" font-size="13" fill="#57606a">C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>
 <rect x="84" y="265.0" width="788" height="8.1" fill="#e4f5f2"/>
 <line x1="84" y1="265.0" x2="872" y2="265.0" stroke="#0f766e" stroke-opacity="0.5" stroke-width="1"/>
 <line x1="84" y1="273.1" x2="872" y2="273.1" stroke="#0f766e" stroke-opacity="0.5" stroke-width="1"/>
