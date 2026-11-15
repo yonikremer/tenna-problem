@@ -169,8 +169,13 @@ def test_the_svg_has_one_circle_per_probe_and_closes():
     record = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (46.0, 40, 0.40)], (50.0, 49.0))
     svg = breakpoints._scatter_svg([record], [8], 100, 0.95)
     assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
-    # good end + two trace points + bad end + the edge marker + three legend swatches
-    assert svg.count("<circle") == 8
+    # one circle per probe inside the plot, plus the legend markers underneath it
+    dots = [
+        match
+        for match in re.finditer(r'<circle cx="[\d.]+" cy="([\d.]+)"', svg)
+        if float(match.group(1)) < 460
+    ]
+    assert len(dots) == len(breakpoints._probes_of(record))
     assert svg.count("<polyline") == 0, "one duration cannot draw an edge line"
 
 

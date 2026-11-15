@@ -621,9 +621,8 @@ def _svg_legend(
 
     The counts are spelled out rather than described as "half" and "above", so a reader does not
     have to hold the criterion in their head: with 100 recordings per point and the 95% criterion
-    the rows read 95-100, 50-94 and 0-49 fully recovered. The two marks that are not data (the edge
-    marker and the search bound) get their own entries, because a reader who cannot find a mark in
-    the legend has to guess what it means.
+    the rows read 95-100, 50-94 and 0-49 fully recovered. The edge marker gets its own entry: it is
+    not a probe, and a reader who cannot find a mark in the legend has to guess what it means.
     """
     at_criterion = round(criterion * signals)
     half = signals // 2
@@ -637,7 +636,6 @@ def _svg_legend(
             ("rule", annotation, "our record length"),
             ("dash", edge_colour, "located edge"),
             ("bracket", edge_colour, "edge marker"),
-            ("bound", muted, "bound probe (open ring)"),
         ],
     ]
     if observations:
@@ -706,9 +704,9 @@ def _scatter_svg(
     - The located edge is a bracket with a gap, not a circle around the point: near the edge the
       probes are closer together than a marker is wide, so a ring would swallow three or four of
       them, including ones of another class.
-    - The lowest pass class is an open marker and the bracket ends are larger open rings, so the
-      classes differ in shape as well as colour. A bracket end keeps its own class colour: it is a
-      real probe with a real pass count, only drawn as a ring because it is the end of the search.
+    - Every probe is drawn the same way, including the two ends of the bracket: each is 100 real
+      recordings, so the only thing that differs is its pass rate. The lowest class is an open
+      marker, so the three classes differ in shape as well as colour.
     """
     low, high = 38.0, 72.0
     width, height = 900, 544
@@ -736,7 +734,7 @@ def _scatter_svg(
     description = (
         "C/N0 per PRN needed for exact recovery of a 15-chip mask, against record length in code "
         f"periods from {periods[0]} to {periods[-1]}. Each dot is {signals} independent recordings "
-        "at that point. Open circles at the top and bottom of each column are the search bounds."
+        "at that point. The top and bottom dot of each column are the ends of the searched range."
     )
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
@@ -836,17 +834,9 @@ def _scatter_svg(
             continue
         x = x_of(periods[index])
         probes = _probes_of(record)
-        for position, (cn0, passes) in enumerate(probes):
+        for cn0, passes in probes:
             y = y_of(cn0)
             glyph = _glyph(passes, signals, criterion)
-            if position in (0, len(probes) - 1):
-                # the bracket ends are real probes with real counts, so they keep their class
-                # colour; the open ring is what says "end of the searched range"
-                parts.append(
-                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.0" fill="none" '
-                    f'stroke="{colours[glyph]}" stroke-width="1.7"/>'
-                )
-                continue
             if glyph == ".":  # open marker, so the classes differ in shape too
                 parts.append(
                     f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="none" '
