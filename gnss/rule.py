@@ -57,6 +57,32 @@ def rule_flips(base, slope: int, prn: int, first_prn: int = 1) -> set:
     return {(chip - shift) % CODE_LENGTH for chip in base}
 
 
+def fibonacci(n: int) -> int:
+    """The n-th Fibonacci number; fibonacci(1) = 1 and fibonacci(2) = 1."""
+    a, b = 1, 1
+    for _ in range(n - 1):
+        a, b = b, a + b
+    return a
+
+
+def closed_form_flips(prn_index: int) -> list:
+    """Chip indexes PRN `prn_index` flips, straight from the rule. `prn_index` starts at 1.
+
+    Start at `1022 - 2 * prn_index` and step back by successive Fibonacci numbers, keeping each
+    landing only while it stays inside the code. The walk stops before the step that would go
+    negative: for PRN 1 the next step is 610, and 34 - 610 = -576 is not a chip. Subtracting
+    modulo 1023 there would invent chip 447, which is not flipped.
+    """
+    x = 1022 - 2 * prn_index
+    chips = [x]
+    i = 1
+    while x - fibonacci(i) >= 0:
+        x = x - fibonacci(i)
+        chips.append(x)
+        i += 1
+    return chips
+
+
 @dataclass(frozen=True)
 class PatternExplanation:
     """What the recovered base pattern is, as a formula plus a per-position match against it."""
@@ -75,7 +101,7 @@ class PatternExplanation:
         found = len(self.offsets_from_start)
         lines = [
             f"{self.name}:",
-            f"  chips = (1020 - prefix sum of {list(self.increments)}) mod {CODE_LENGTH}",
+            f"  chips = 1020 - prefix sum of {list(self.increments)}",
         ]
         if self.matches:
             lines.append(f"  the recovered pattern matches that rule exactly ({found}/{found} positions)")
@@ -121,7 +147,7 @@ def explain_base(base) -> PatternExplanation:
     ]
     return PatternExplanation(
         name="backward cumulative Fibonacci prefix sums",
-        formula="(1020 - sum(Fibonacci[0:k])) mod 1023 for k = 0..14",
+        formula="1020 - sum(Fibonacci[0:k]) for k = 0..14",
         matches=recovered == reference,
         increments=FIBONACCI,
         cumulative_chips=tuple(cumulative),
@@ -260,9 +286,13 @@ class Rule:
         return self.flips[prn]
 
     def table(self) -> list:
-        """One row per flipped chip: (satellite, shift_chips, chip_index)."""
+        """One row per flipped chip: (satellite, shift_chips, chip_index, base_chip).
+
+        `base_chip` is where that chip sits in the first PRN's coordinates, so the reader can see
+        that the shift is the only difference between the PRNs.
+        """
         return [
-            (prn, self.shift_of(prn), chip)
+            (prn, self.shift_of(prn), chip, chip + self.shift_of(prn))
             for prn in sorted(self.flips)
             for chip in sorted(self.flips[prn])
         ]

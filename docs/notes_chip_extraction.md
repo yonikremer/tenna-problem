@@ -146,7 +146,7 @@ chips far below the rest, and the base pattern is
     34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
 
 which is `1020` minus the prefix sums of `1,1,2,3,5,8,13,21,34,55,89,144,233,377` - the Fibonacci
-numbers in reverse. Per PRN: `flip = (base - 2*(PRN-1)) mod 1023`.
+numbers in reverse. Per PRN: `flip = base - 2*(PRN-1)`. No wrap: the smallest base chip is 34 and the largest shift is 22.
 
 The joint sum raises the signal by 12 while the independent noise rises by sqrt(12), about 10.8 dB.
 At 55 dB-Hz that is enough to read all 15 positions exactly, which one PRN alone cannot do. The

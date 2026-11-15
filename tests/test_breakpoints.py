@@ -6,6 +6,7 @@ everything about whether a located edge can be trusted.
 """
 
 import json
+import re
 
 import breakpoints
 
@@ -168,8 +169,13 @@ def test_the_svg_has_one_circle_per_probe_and_closes():
     record = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (46.0, 40, 0.40)], (50.0, 49.0))
     svg = breakpoints._scatter_svg([record], [8], 100, 0.95)
     assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
-    # good end + two trace points + bad end + the edge marker + three legend swatches
-    assert svg.count("<circle") == 8
+    # one circle per probe inside the plot, plus the legend markers underneath it
+    dots = [
+        match
+        for match in re.finditer(r'<circle cx="[\d.]+" cy="([\d.]+)"', svg)
+        if float(match.group(1)) < 460
+    ]
+    assert len(dots) == len(breakpoints._probes_of(record))
     assert svg.count("<polyline") == 0, "one duration cannot draw an edge line"
 
 
@@ -194,8 +200,19 @@ def test_the_duration_section_reports_the_gain_per_doubling(monkeypatch, tmp_pat
     text = " ".join(section)
     assert section[0] == breakpoints.SECTION_DURATION_HEADING
     assert "4.00 dB per doubling" in text
-    assert figure.as_posix() in text
-    assert figure.exists() and figure.read_text(encoding="utf-8").startswith("<svg")
+    # one file per page theme, both named after the given figure path
+    light = figure.with_name(f"{figure.name}_light.svg")
+    dark = figure.with_name(f"{figure.name}_dark.svg")
+    assert light.as_posix() in text and dark.as_posix() in text
+    for drawn in (light, dark):
+        assert drawn.exists(), drawn
+        body = drawn.read_text(encoding="utf-8")
+        assert body.startswith("<svg")
+    # the two files must differ only in colour, i.e. both carry the same marks
+    assert light.read_text(encoding="utf-8").count("<circle") == dark.read_text(
+        encoding="utf-8"
+    ).count("<circle")
+    assert light.read_text(encoding="utf-8") != dark.read_text(encoding="utf-8")
 
 
 def test_each_probe_is_paid_for_once(monkeypatch):
@@ -217,6 +234,15 @@ def test_each_probe_is_paid_for_once(monkeypatch):
     assert all(passes in (0, 100) for _, passes, _ in record["trace"])
 
 
+def band_rects(svg: str) -> list:
+    """The plot-width band rectangles, excluding the small legend swatches."""
+    return [
+        width
+        for width in re.findall(r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)"', svg)
+        if float(width) > 100
+    ]
+
+
 def test_the_figure_draws_one_band_per_observation_and_marks_our_record_length():
     good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (44.0, 20, 0.20)], (50.0, 49.0))
     svg = breakpoints._scatter_svg([good, good], [8, 32], 100, 0.95)
@@ -224,9 +250,22 @@ def test_the_figure_draws_one_band_per_observation_and_marks_our_record_length()
     assert "our recordings: 8 ms" in svg
     for label, low, high in breakpoints.OBSERVATIONS:
         assert label in svg, f"{label} must be labelled on its band"
-        assert f"{low:g}-{high:g} dB-Hz" in svg
-    assert svg.count("<rect x=") == len(breakpoints.OBSERVATIONS), "one rect per observation band"
+        assert f"{label}: {low:g} to {high:g} dB-Hz" in svg
+    assert len(band_rects(svg)) == len(breakpoints.OBSERVATIONS), "one rect per observation band"
     assert 'stroke-width="10"' not in svg, "the half-to-reliable bands are gone"
+    # a band is a C/N0 level, which does not depend on record length, so it spans the axis; the
+    # vertical rule is what marks the 8 ms we actually have
+    wider = breakpoints._scatter_svg([good, good, good], [2, 8, 32], 100, 0.95)
+    bands = [
+        (match.group(1), match.group(2))
+        for match in re.finditer(r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', wider)
+        if float(match.group(2)) > 100
+    ]
+    assert len({x for x, _ in bands}) == 1, f"bands must share a left edge: {bands}"
+    assert float(bands[0][0]) == 84.0, "bands start at the plot's left edge"
+    assert float(bands[0][1]) > 700.0, "bands run to the right edge"
+    assert re.search(r'<line x1="[\d.]+" y1="112" x2="[\d.]+" y2="[\d.]+" '
+                     r'stroke="#414a53" stroke-width="1.5"/>', wider), "the 8 ms rule must be drawn"
 
 
 def test_the_legend_spells_out_the_counts_instead_of_describing_them():
@@ -252,4 +291,4 @@ def test_the_observation_bands_do_not_depend_on_the_x_axis():
     good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (44.0, 20, 0.20)], (50.0, 49.0))
     svg = breakpoints._scatter_svg([good], [16], 100, 0.95)
     assert "our recordings" not in svg, "no 8 ms column when 8 ms is not on the axis"
-    assert svg.count("<rect x=") == len(breakpoints.OBSERVATIONS)
+    assert len(band_rects(svg)) == len(breakpoints.OBSERVATIONS)

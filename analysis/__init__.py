@@ -13,6 +13,7 @@ question that the main report summarises, and each prints its measurement rather
   acquire_nc                 acquisition with the vendored Peter Monta kernel, as a cross-check
   nc2cu8                     NetCDF recording to the int8 interleaved form that kernel reads
   dump_attrs                 every NetCDF attribute of a recording, as JSON
+  weakest_chip               how low a truly flipped chip can read, at one recording's noise level
 
 Run one with `python -m analysis.<name> [recording ...]` from the repository root.
 """

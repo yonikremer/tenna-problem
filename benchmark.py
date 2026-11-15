@@ -241,7 +241,6 @@ def score(scenario: Scenario, truth: Truth, path: str) -> dict:
             "nominal_to_recovered_db": float("nan"),
             "seconds": time.perf_counter() - started,
             "doppler_limit_hz": found.doppler_limit_hz,
-        "threshold": found.threshold,
             "threshold": found.threshold,
             "verdict": "detection",
             "detail": str(error),

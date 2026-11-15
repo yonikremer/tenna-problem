@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="544" viewBox="0 0 900 544" role="img" aria-labelledby="duration-figure-title" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+<title id="duration-figure-title">Longer records read weaker signals</title>
+<desc>C/N0 per PRN needed for exact recovery of a 15-chip mask, against record length in code periods from 2 to 32. Each dot is 100 independent recordings at that point. The top and bottom dot of each column are the ends of the searched range.</desc>
+<rect width="900" height="544" fill="#ffffff"/>
+<text x="28" y="36" font-size="17" font-weight="600" fill="#1f2328">Longer records read weaker signals</text>
+<text x="28" y="58" font-size="14" fill="#57606a">100 recordings per point, all 15 chips exact, 12 PRNs</text>
+<text x="28" y="76" font-size="14" fill="#57606a">C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>
+<line x1="84" y1="386.8" x2="872" y2="386.8" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="390.8" text-anchor="end" font-size="13" fill="#57606a">40</text>
+<line x1="84" y1="343.9" x2="872" y2="343.9" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="347.9" text-anchor="end" font-size="13" fill="#57606a">45</text>
+<line x1="84" y1="300.9" x2="872" y2="300.9" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="304.9" text-anchor="end" font-size="13" fill="#57606a">50</text>
+<line x1="84" y1="258.0" x2="872" y2="258.0" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="262.0" text-anchor="end" font-size="13" fill="#57606a">55</text>
+<line x1="84" y1="215.1" x2="872" y2="215.1" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="219.1" text-anchor="end" font-size="13" fill="#57606a">60</text>
+<line x1="84" y1="172.1" x2="872" y2="172.1" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="176.1" text-anchor="end" font-size="13" fill="#57606a">65</text>
+<line x1="84" y1="129.2" x2="872" y2="129.2" stroke="#f2f4f7" stroke-width="1"/>
+<text x="72" y="133.2" text-anchor="end" font-size="13" fill="#57606a">70</text>
+<rect x="84.0" y="258.9" width="788.0" height="6.9" fill="#b8dcd2"/>
+<line x1="84.0" y1="258.9" x2="872" y2="258.9" stroke="#0f766e" stroke-opacity="0.6" stroke-width="1"/>
+<line x1="84.0" y1="265.7" x2="872" y2="265.7" stroke="#0f766e" stroke-opacity="0.6" stroke-width="1"/>
+<rect x="84.0" y="318.1" width="788.0" height="33.5" fill="#dbccf8"/>
+<line x1="84.0" y1="318.1" x2="872" y2="318.1" stroke="#6d28d9" stroke-opacity="0.6" stroke-width="1"/>
+<line x1="84.0" y1="351.6" x2="872" y2="351.6" stroke="#6d28d9" stroke-opacity="0.6" stroke-width="1"/>
+<line x1="84" y1="404" x2="872" y2="404" stroke="#d0d7de"/>
+<line x1="84" y1="112" x2="84" y2="404" stroke="#d0d7de"/>
+<text x="84.0" y="426" text-anchor="middle" font-size="13" font-weight="400" fill="#57606a">2</text>
+<text x="281.0" y="426" text-anchor="middle" font-size="13" font-weight="400" fill="#57606a">4</text>
+<text x="478.0" y="426" text-anchor="middle" font-size="13" font-weight="600" fill="#414a53">8</text>
+<text x="675.0" y="426" text-anchor="middle" font-size="13" font-weight="400" fill="#57606a">16</text>
+<text x="872.0" y="426" text-anchor="middle" font-size="13" font-weight="400" fill="#57606a">32</text>
+<text x="478" y="448" text-anchor="middle" font-size="13" fill="#57606a">record length in code periods (log scale) &#183; 1 period = 1 ms</text>
+<text transform="translate(26 258) rotate(-90)" text-anchor="middle" font-size="13" fill="#57606a">C/N0 needed for exact recovery (dB-Hz)</text>
+<line x1="478.0" y1="112" x2="478.0" y2="404" stroke="#414a53" stroke-width="1.5"/>
+<text x="478.0" y="102" text-anchor="middle" font-size="13" font-weight="600" fill="#414a53">our recordings: 8 ms</text>
+<polyline points="84.0,249.9 281.0,282.2 478.0,306.3 675.0,343.9 872.0,365.4" fill="none" stroke="#0969da" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
+<circle cx="84.0" cy="386.8" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="129.2" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="193.6" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="225.8" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="241.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="258.0" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="254.0" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="252.0" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="84.0" cy="249.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="75.0" y1="249.9" x2="80.0" y2="249.9" stroke="#0969da" stroke-width="2.5"/>
+<line x1="88.0" y1="249.9" x2="93.0" y2="249.9" stroke="#0969da" stroke-width="2.5"/>
+<circle cx="281.0" cy="386.8" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="215.1" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="258.0" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="300.9" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="290.2" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="279.5" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="284.8" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="283.5" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="281.0" cy="282.2" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="272.0" y1="282.2" x2="277.0" y2="282.2" stroke="#0969da" stroke-width="2.5"/>
+<line x1="285.0" y1="282.2" x2="290.0" y2="282.2" stroke="#0969da" stroke-width="2.5"/>
+<circle cx="478.0" cy="215.1" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="386.8" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="343.9" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="322.4" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="300.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="311.7" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="309.0" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="307.7" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="478.0" cy="306.3" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="469.0" y1="306.3" x2="474.0" y2="306.3" stroke="#0969da" stroke-width="2.5"/>
+<line x1="482.0" y1="306.3" x2="487.0" y2="306.3" stroke="#0969da" stroke-width="2.5"/>
+<circle cx="675.0" cy="215.1" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="300.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="386.8" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="365.4" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="354.6" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="349.2" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="346.6" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="345.2" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="675.0" cy="343.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="666.0" y1="343.9" x2="671.0" y2="343.9" stroke="#0969da" stroke-width="2.5"/>
+<line x1="679.0" y1="343.9" x2="684.0" y2="343.9" stroke="#0969da" stroke-width="2.5"/>
+<circle cx="872.0" cy="215.1" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="300.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="343.9" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="386.8" r="3.4" fill="#d1242f" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="376.1" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="370.7" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="368.0" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="366.7" r="3.4" fill="#9a6700" stroke="#ffffff" stroke-width="1.2"/>
+<circle cx="872.0" cy="365.4" r="3.4" fill="#1a7f37" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="863.0" y1="365.4" x2="868.0" y2="365.4" stroke="#0969da" stroke-width="2.5"/>
+<line x1="876.0" y1="365.4" x2="881.0" y2="365.4" stroke="#0969da" stroke-width="2.5"/>
+<circle cx="89.0" cy="478" r="3.4" fill="#1a7f37"/>
+<text x="106.0" y="482" font-size="13" fill="#57606a">95-100 of 100 fully recovered</text>
+<circle cx="332.5" cy="478" r="3.4" fill="#9a6700"/>
+<text x="349.5" y="482" font-size="13" fill="#57606a">50-94 of 100 fully recovered</text>
+<circle cx="568.5" cy="478" r="3.4" fill="#d1242f"/>
+<text x="585.5" y="482" font-size="13" fill="#57606a">0-49 of 100 fully recovered</text>
+<line x1="84.0" y1="502" x2="98.0" y2="502" stroke="#414a53" stroke-width="2.5" stroke-dasharray="7 5"/>
+<text x="106.0" y="506" font-size="13" fill="#57606a">our record length</text>
+<line x1="237.5" y1="502" x2="251.5" y2="502" stroke="#0969da" stroke-width="2.5" stroke-dasharray="7 5"/>
+<text x="259.5" y="506" font-size="13" fill="#57606a">located edge</text>
+<line x1="353.5" y1="502" x2="358.0" y2="502" stroke="#0969da" stroke-width="2"/>
+<line x1="363.0" y1="502" x2="367.5" y2="502" stroke="#0969da" stroke-width="2"/>
+<text x="375.5" y="506" font-size="13" fill="#57606a">edge marker</text>
+<rect x="84.0" y="522" width="10" height="8" fill="#b8dcd2"/>
+<text x="106.0" y="530" font-size="13" fill="#57606a">recording 1: 54.1 to 54.9 dB-Hz</text>
+<rect x="342.5" y="522" width="10" height="8" fill="#dbccf8"/>
+<text x="364.5" y="530" font-size="13" fill="#57606a">recording 2: 44.1 to 48 dB-Hz</text>
+</svg>

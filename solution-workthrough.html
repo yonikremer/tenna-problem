@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+(function () {
+  var stored = localStorage.getItem("solution-theme");
+  var theme = stored || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", theme);
+})();
+</script>
+<title>Solution workthrough: one rule modified 12 PRNs</title>
+<link rel="stylesheet" href="solution-workthrough.css">
+<link rel="stylesheet" href="assets/katex/katex.min.css">
+</head>
+<body>
+<div class="frame">
+<nav>
+<p class="doc-id">L1 C/A</p>
+<a href="#s1">1 PRNs</a>
+<a href="#s2">2 Isolate</a>
+<a href="#s3">3 Noise</a>
+<a href="#s4">4 Shift</a>
+<a href="#s5">5 Sum</a>
+<a href="#s6">6 Indexes</a>
+<a href="#s7">7 Proof</a>
+<a href="#s9">8 Chip 987</a>
+<a href="#s10">9 Breaks</a>
+<a href="#s8">Path</a>
+<button type="button" id="theme">Dark</button>
+</nav>
+<main>
+
+<h1>One rule modified 12 PRNs</h1>
+<p class="lede"><code>gnss_observation.nc</code> holds 8 ms of twelve GPS L1 C/A signals on one carrier. The same mask flips each 1023-chip code. The mask moves two chips for each step in the PRN index.</p>
+
+<div class="win">
+<p><code>prn_index</code> is the PRN number, starting at 1. <code>fibonacci(i)</code> is the i-th Fibonacci number: 1, 1, 2, 3, 5, 8, and so on.</p>
+<pre><code>def flipped_chips(prn_index: int) -&gt; list[int]:
+    x = 1022 - 2 * prn_index
+    chips = [x]
+    i = 1
+    while x - fibonacci(i) &gt;= 0:
+        x = x - fibonacci(i)
+        chips.append(x)
+        i += 1
+    return chips</code></pre>
+<p><code>sorted(flipped_chips(1))</code> is these fifteen chips: the function walks downward from 1020, so sorted() puts them in the order below. Recording 1 supports all of them. Recording 2's extractor drops one, chip 987.</p>
+<p class="mono">34, 411, 644, 788, 877, 932, 966, 987, 1000, 1008, 1013, 1016, 1018, 1019, 1020</p>
+<p><a href="solve.py">solve.py</a> is the whole solution in one command: acquisition, isolation, chip readout, the shift search, the rule, and the evidence. It applies <code>closed_form_flips</code> to both recordings and writes six files next to each recording.</p>
+<ul>
+<li><code>data/&lt;name&gt;_acquisition.csv</code>: every searched PRN with its Doppler, code phase and C/N0.</li>
+<li><code>data/&lt;name&gt;_joint_flips.csv</code>: PRN, shift, chip index, and the same chip in PRN 1's coordinates.</li>
+<li><code>data/&lt;name&gt;_modified_positions.csv</code>: the same positions, PRN and chip index only.</li>
+<li><code>data/&lt;name&gt;_transmitted_codes.csv</code>: one row per PRN, with both 1023-chip codes space separated and the modified indexes beside them.</li>
+<li><code>data/&lt;name&gt;_transmitted_codes.npz</code>: the same as two 12 × 1023 arrays.</li>
+<li><code>data/&lt;name&gt;_solution.json</code>: the whole answer. Its <code>codes</code> key holds one row per PRN with <code>prn</code>, <code>transmitted_code</code> (all 1,023 chips), <code>original_code</code> (the published IS-GPS-200 C/A code, all 1,023 chips), and <code>modified_indexes</code>, which is exactly where the two differ. <code>rule.closed_form_flips</code> and <code>rule.closed_form_matches</code> sit beside it.</li>
+</ul>
+<p><code>solve.py</code> refuses to write a code that is not ±1 or whose changed chips differ from the recovered flips. On recording 1 <code>closed_form_matches</code> is true for all twelve PRNs. On recording 2 it is false for all twelve, because each PRN's list is missing one chip: base position 987, which is 965 in PRN 12's own coordinates. That is one missing chip, not twelve faults.</p>
+</div>
+
+<h2 id="s1">1. The twelve PRNs, and the data bit</h2>
+
+<p><code>gnss_observation.nc</code> holds 32,736 complex samples at 4.092 MHz. The record is 8 code periods. Each code period lasts 1 ms and contains 1,023 chips. Each chip has 4 samples.</p>
+<p>The centre frequency is 1575.42 MHz. The file does not name the PRNs. The search has to find them.</p>
+
+<p>For each candidate PRN and each trial Doppler, correlate the recording with that PRN's published C/A code times a carrier. The peak over code phase is the detection statistic. One millisecond at 4 samples per chip is 4,092 samples.</p>
+<p>The signal adds in amplitude. The noise adds in power. The gain is $10\log_{10}(4092) = 36.1$ dB. A 55 dB-Hz signal is invisible in the raw samples. After correlation it stands about 30 dB above the floor.</p>
+
+<p>Coherence dies when the carrier rotates half a cycle across one code period. The coarse Doppler step is $1/(2\,\text{ms}) = 500$ Hz. A fit across the whole 8 ms tightens that to a fraction of a hertz. The search span is the largest ground-receiver line-of-sight speed, about ±5.2 kHz.</p>
+
+<p>Twelve PRNs clear the floor by 1,260× to 1,930×. The strongest satellite that misses the cut is PRN 165, at 33.5×. C/N0 is 54.1 to 54.9 dB-Hz. The file declares 55. Doppler uncertainty on the twelve is 1.4 to 2.0 Hz.</p>
+
+<table>
+<tbody>
+<tr><th>PRN</th><th>Doppler</th><th>± Hz</th><th>Code phase</th><th>Peak / floor</th><th>C/N0</th></tr>
+<tr><td class="num">1</td><td class="num">−2703.56</td><td class="num">1.45</td><td class="num">31.243</td><td class="num">1501</td><td class="num">54.5</td></tr>
+<tr><td class="num">2</td><td class="num">−2113.79</td><td class="num">1.45</td><td class="num">109.243</td><td class="num">1616</td><td class="num">54.6</td></tr>
+<tr><td class="num">3</td><td class="num">−1530.33</td><td class="num">1.94</td><td class="num">188.251</td><td class="num">1498</td><td class="num">54.5</td></tr>
+<tr><td class="num">4</td><td class="num">−935.78</td><td class="num">1.44</td><td class="num">274.246</td><td class="num">1613</td><td class="num">54.6</td></tr>
+<tr><td class="num">5</td><td class="num">−347.34</td><td class="num">1.93</td><td class="num">351.258</td><td class="num">1537</td><td class="num">54.4</td></tr>
+<tr><td class="num">6</td><td class="num">270.98</td><td class="num">1.92</td><td class="num">438.000</td><td class="num">1558</td><td class="num">54.9</td></tr>
+<tr><td class="num">7</td><td class="num">874.97</td><td class="num">1.44</td><td class="num">521.998</td><td class="num">1930</td><td class="num">54.6</td></tr>
+<tr><td class="num">8</td><td class="num">1440.86</td><td class="num">1.99</td><td class="num">604.001</td><td class="num">1440</td><td class="num">54.6</td></tr>
+<tr><td class="num">9</td><td class="num">2053.38</td><td class="num">1.46</td><td class="num">686.997</td><td class="num">1434</td><td class="num">54.5</td></tr>
+<tr><td class="num">10</td><td class="num">2653.96</td><td class="num">1.53</td><td class="num">770.996</td><td class="num">1260</td><td class="num">54.1</td></tr>
+<tr><td class="num">11</td><td class="num">−1099.59</td><td class="num">1.43</td><td class="num">854.246</td><td class="num">1647</td><td class="num">54.7</td></tr>
+<tr><td class="num">12</td><td class="num">1114.86</td><td class="num">1.97</td><td class="num">946.008</td><td class="num">1389</td><td class="num">54.3</td></tr>
+</tbody>
+</table>
+
+<p>Code phase is in chips, inside the 1 ms period. The fractional parts sit on 0 or 0.25, within about 0.01 chip. Four samples per chip put an integer-sample delay on that quarter-chip grid. The file declares an integer-sample delay. The fit landed on that grid.</p>
+
+<h3>The data bit does not flip</h3>
+
+<p>A navigation data bit lasts 20 ms. This record is 8 ms. At most one change can fall inside it. That change has to sit on a code-period boundary.</p>
+<p>A π step in the prompt looks the same to a straight-line Doppler fit as a frequency error of about $1/(2 \times 4\,\text{ms})$. If the fit ignores the bit, the Doppler comes back tens of hertz wrong. The reported interval does not show that error.</p>
+
+<p>The record does not start on a code boundary. The prompts are nine segments: a partial head, seven full periods, and a partial tail. For each PRN, choose the sign pattern whose de-rotated prompts have the largest coherent sum. The all-positive pattern is always a candidate. A real change has to beat it.</p>
+
+<div class="win">
+<p>All twelve PRNs have sign +1 on all nine segments. No boundary wins. The bit stays the same across the 8 ms.</p>
+<p>A global minus is the same as a π shift of the carrier. That phase already sits in the complex amplitude from the next step. This step shows that the bit does not change. It does not give a physical +1 apart from the phase reference.</p>
+</div>
+
+<h2 id="s2">2. Isolate each PRN</h2>
+
+<p>The recording is a sum. If you read one satellite while the other eleven are still in the samples, their cross-correlation sets the floor of every chip.</p>
+
+<div class="math">$$x[n] = \sum_s a_s\, c_s[k(n)]\, e^{j 2\pi f_s t_n}\, b_s + \text{noise}[n]$$</div>
+
+<p>Build a unit replica $u_s$ from the published code, the measured Doppler, the measured code phase, and a constant data bit. The signals add, so one complex amplitude is a projection:</p>
+
+<div class="math">$$a_s = \frac{1}{N}\sum_n u_s^*[n]\, x[n], \qquad \text{clean}_s[n] = x[n] - \sum_{o \neq s} a_o\, u_o[n]$$</div>
+
+<p>Wipe this satellite's carrier. Multiply by its nominal code. A chip that matches the published code reads $+A$. A flipped chip reads $-A$. The chip index comes from the measured code phase. The 1,023 numbers are already in that PRN's own code coordinates.</p>
+
+<p>Measured amplitudes are 0.254 to 0.284. The file declares 0.278 per sample. The nominal replica is wrong on the fifteen flipped chips, so the projection is a little low. $(993/1023)\times 0.278 = 0.270$. The measured cluster sits on 0.270.</p>
+
+<div class="note">
+<p>Cancellation uses the nominal codes. Those codes are wrong at the other satellites' flipped chips. That error sits at the other satellite's Doppler. When this satellite's carrier is wiped, the leftover rotates and averages down over the 8 ms. This satellite's own flips stay. They are at this Doppler and this code phase, so they remain minus signs in the chip vector.</p>
+</div>
+
+<h2 id="s3">3. Eight milliseconds is still too noisy</h2>
+
+<p>A chip reappears once per millisecond. The average uses eight occurrences, four samples each. That is 32 samples.</p>
+
+<div class="math">$$\sigma_{\text{chip}} = \frac{1}{\sqrt{32}} = 0.177, \qquad \frac{A}{\sigma} = \frac{0.278}{0.177} = 1.57$$</div>
+
+<p>The ratio is about +4 dB. A sign test at 1.57 is too noisy to name a chip. After you remove the other satellites, the quiet chips measure a bit better.</p>
+<p>The mean is about 0.28. The spread is about 0.12. The ratio is about 2. That is still too weak to name fifteen flips out of 1,023.</p>
+
+<p>A true flip is negative. A noise spike is also negative. The counts below use the mask from step 6 as a score. They do not use it as an input. Every PRN has more negatives than flips.</p>
+
+<table>
+<tbody>
+<tr><th>PRN</th><th>Negative chips</th><th>True flips caught</th><th>False alarms</th><th>Missed</th></tr>
+<tr><td class="num">1</td><td class="num">37</td><td class="num">15 / 15</td><td class="num">22</td><td class="num">0</td></tr>
+<tr><td class="num">2</td><td class="num">32</td><td class="num">15 / 15</td><td class="num">17</td><td class="num">0</td></tr>
+<tr><td class="num">3</td><td class="num">31</td><td class="num">15 / 15</td><td class="num">16</td><td class="num">0</td></tr>
+<tr><td class="num">4</td><td class="num">37</td><td class="num">15 / 15</td><td class="num">22</td><td class="num">0</td></tr>
+<tr><td class="num">5</td><td class="num">32</td><td class="num">15 / 15</td><td class="num">17</td><td class="num">0</td></tr>
+<tr><td class="num">6</td><td class="num">21</td><td class="num">15 / 15</td><td class="num">6</td><td class="num">0</td></tr>
+<tr><td class="num">7</td><td class="num">35</td><td class="num">15 / 15</td><td class="num">20</td><td class="num">0</td></tr>
+<tr><td class="num">8</td><td class="num">30</td><td class="num">15 / 15</td><td class="num">15</td><td class="num">0</td></tr>
+<tr><td class="num">9</td><td class="num">32</td><td class="num">15 / 15</td><td class="num">17</td><td class="num">0</td></tr>
+<tr><td class="num">10</td><td class="num">29</td><td class="num">14 / 15</td><td class="num">15</td><td class="num">1</td></tr>
+<tr><td class="num">11</td><td class="num">28</td><td class="num">15 / 15</td><td class="num">13</td><td class="num">0</td></tr>
+<tr><td class="num">12</td><td class="num">38</td><td class="num">15 / 15</td><td class="num">23</td><td class="num">0</td></tr>
+</tbody>
+</table>
+
+<p>PRN 6 is the cleanest, and it still has six false alarms. PRN 10 misses one real flip. A threshold on one PRN cannot separate 15 flips from 6 to 23 noise spikes. This file has only eight periods. The next navigation bit would arrive at 20 ms. There is no more time to average.</p>
+
+<p>If the twelve looks are of one pattern, stacking them raises the signal by $\sqrt{12}$, about 10.8 dB. Step 3 does not show that they are one pattern. It shows that one PRN is not enough.</p>
+
+<h2 id="s4">4. Same chips, or a shifted copy?</h2>
+
+<p>A threshold on one PRN cannot name that PRN's flips. This file has no more time to average. If each PRN's modified chips are an independent list, the record does not contain the answer.</p>
+
+<p>The assignment says the modifications follow one common rule. That rule is the extra information. I did not know its form. Two forms were concrete enough to test.</p>
+
+<p>The first form is identity. Every PRN flips the same chip indexes.</p>
+
+<p>The second form is a shift. The sequence of flipped chips is the same, but it starts at a different index in each PRN's code. A constant number of chips per step in the PRN index is the simple case of that shift. That was the relation I chose to test.</p>
+
+<p>Circular correlation is the test. Each soft vector $v_s[k]$ is already in PRN $s$'s own code coordinates, so a lag is a shift in chip index. If PRN $i$ and PRN $j$ carry the same dip pattern, moved by $d$ chips, their vectors peak at lag $d$. Lag 0 on every pair would mean the indexes match. A lag that steps with the PRN index would mean the sequences are shifted copies. A lag with no pattern would reject both forms.</p>
+
+<p>The correlation is:</p>
+
+<div class="math">$$R_{i,j}[d] = \sum_{k=0}^{1022} v_i[k]\, v_j[(k-d) \bmod 1023]$$</div>
+
+<p>The winning lag is exactly $-2(i-j)$ for every pair. All 66 pairs match. None miss.</p>
+
+<figure class="heat-wrap">
+  <figcaption>Lag, in chips, of the row PRN against the column PRN. The gray diagonal is lag 0.</figcaption>
+  <table class="heat" id="lag-heat"></table>
+  <div class="heat-legend"><span>−22</span><span class="bar" title="0 at the centre"></span><span>+22</span></div>
+</figure>
+
+<p>Column 1 is each PRN against PRN 1. The peaks are $0, -2, -4, \ldots, -22$. That is $-2(s-1)$.</p>
+
+<p>The twelve soft vectors are one pattern. Each step up in PRN index slides that pattern two chips earlier. PRN 3 and PRN 8 have different code phases in the recording. The shift of −2 shows up only after you write each vector in its own chip index.</p>
+
+<h2 id="s5">5. Line the dips up, then add</h2>
+
+<p>Roll PRN $s$ by $+2(s-1)$. Its dips then land on PRN 1's chip indexes. Average the twelve:</p>
+
+<div class="math">$$C[k] = \frac{1}{12}\sum_s v_s\big[(k - 2(s-1)) \bmod 1023\big]$$</div>
+
+<p>The flips add twelve times. Independent noise adds as $\sqrt{12}$. The gain is $10\log_{10}(12) = 10.8$ dB. The spread of a quiet chip falls from about 0.12 on one PRN to 0.038 on the average.</p>
+
+<p>Sort $C$. The sign changes from minus to plus after exactly fifteen chips. The weakest of those fifteen is −0.199. The next chip, 631, is still positive at +0.151. The gap is about nine quiet-chip standard deviations.</p>
+
+<table>
+<tbody>
+<tr><th>Chip</th><th>Consensus</th><th>Quiet σ</th></tr>
+<tr><td class="num">34</td><td class="num">−0.274</td><td class="num">−14.5</td></tr>
+<tr><td class="num">411</td><td class="num">−0.296</td><td class="num">−15.1</td></tr>
+<tr><td class="num">644</td><td class="num">−0.293</td><td class="num">−15.0</td></tr>
+<tr><td class="num">788</td><td class="num">−0.260</td><td class="num">−14.1</td></tr>
+<tr><td class="num">877</td><td class="num">−0.259</td><td class="num">−14.1</td></tr>
+<tr><td class="num">932</td><td class="num">−0.215</td><td class="num">−13.0</td></tr>
+<tr><td class="num">966</td><td class="num">−0.243</td><td class="num">−13.7</td></tr>
+<tr><td class="num">987</td><td class="num">−0.273</td><td class="num">−14.5</td></tr>
+<tr><td class="num">1000</td><td class="num">−0.237</td><td class="num">−13.5</td></tr>
+<tr><td class="num">1008</td><td class="num">−0.199</td><td class="num">−12.5</td></tr>
+<tr><td class="num">1013</td><td class="num">−0.357</td><td class="num">−16.7</td></tr>
+<tr><td class="num">1016</td><td class="num">−0.233</td><td class="num">−13.4</td></tr>
+<tr><td class="num">1018</td><td class="num">−0.250</td><td class="num">−13.9</td></tr>
+<tr><td class="num">1019</td><td class="num">−0.292</td><td class="num">−15.0</td></tr>
+<tr><td class="num">1020</td><td class="num">−0.263</td><td class="num">−14.2</td></tr>
+<tr><td class="num">631 (next)</td><td class="num">+0.151</td><td class="num">still positive</td></tr>
+</tbody>
+</table>
+
+<p>Quiet σ uses the chips outside this set. Their mean is +0.279 and their σ is 0.038. That σ describes the gap. The sign change chooses the chips. The change happens at fifteen.</p>
+
+<p>A second check builds the mask on eleven PRNs and applies it to the twelfth. A correct chip raises that PRN's correlation. A wrong chip lowers it. The best average held-out gain is 15 chips, at +0.244 dB. Fourteen is +0.231 dB. Sixteen is +0.225 dB.</p>
+
+<h2 id="s6">6. What the fifteen indexes are</h2>
+
+<div class="pair">
+<div>
+<p>Sort the fifteen chips and walk up.</p>
+
+<table>
+<tbody>
+<tr><th>From</th><th>To</th><th>Gap</th></tr>
+<tr><td class="num">34</td><td class="num">411</td><td class="num">377</td></tr>
+<tr><td class="num">411</td><td class="num">644</td><td class="num">233</td></tr>
+<tr><td class="num">644</td><td class="num">788</td><td class="num">144</td></tr>
+<tr><td class="num">788</td><td class="num">877</td><td class="num">89</td></tr>
+<tr><td class="num">877</td><td class="num">932</td><td class="num">55</td></tr>
+<tr><td class="num">932</td><td class="num">966</td><td class="num">34</td></tr>
+<tr><td class="num">966</td><td class="num">987</td><td class="num">21</td></tr>
+<tr><td class="num">987</td><td class="num">1000</td><td class="num">13</td></tr>
+<tr><td class="num">1000</td><td class="num">1008</td><td class="num">8</td></tr>
+<tr><td class="num">1008</td><td class="num">1013</td><td class="num">5</td></tr>
+<tr><td class="num">1013</td><td class="num">1016</td><td class="num">3</td></tr>
+<tr><td class="num">1016</td><td class="num">1018</td><td class="num">2</td></tr>
+<tr><td class="num">1018</td><td class="num">1019</td><td class="num">1</td></tr>
+<tr><td class="num">1019</td><td class="num">1020</td><td class="num">1</td></tr>
+</tbody>
+</table>
+</div>
+<div>
+<p>Same fact, read backward from chip 1020. Each step is the next Fibonacci number.</p>
+
+<table>
+<tbody>
+<tr><th>k</th><th>Step</th><th>Sum so far</th><th>Chip = 1020 − sum</th></tr>
+<tr><td class="num">0</td><td class="num">none</td><td class="num">0</td><td class="num">1020</td></tr>
+<tr><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1019</td></tr>
+<tr><td class="num">2</td><td class="num">1</td><td class="num">2</td><td class="num">1018</td></tr>
+<tr><td class="num">3</td><td class="num">2</td><td class="num">4</td><td class="num">1016</td></tr>
+<tr><td class="num">4</td><td class="num">3</td><td class="num">7</td><td class="num">1013</td></tr>
+<tr><td class="num">5</td><td class="num">5</td><td class="num">12</td><td class="num">1008</td></tr>
+<tr><td class="num">6</td><td class="num">8</td><td class="num">20</td><td class="num">1000</td></tr>
+<tr><td class="num">7</td><td class="num">13</td><td class="num">33</td><td class="num">987</td></tr>
+<tr><td class="num">8</td><td class="num">21</td><td class="num">54</td><td class="num">966</td></tr>
+<tr><td class="num">9</td><td class="num">34</td><td class="num">88</td><td class="num">932</td></tr>
+<tr><td class="num">10</td><td class="num">55</td><td class="num">143</td><td class="num">877</td></tr>
+<tr><td class="num">11</td><td class="num">89</td><td class="num">232</td><td class="num">788</td></tr>
+<tr><td class="num">12</td><td class="num">144</td><td class="num">376</td><td class="num">644</td></tr>
+<tr><td class="num">13</td><td class="num">233</td><td class="num">609</td><td class="num">411</td></tr>
+<tr><td class="num">14</td><td class="num">377</td><td class="num">986</td><td class="num">34</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<p>The gaps, small to large, are the Fibonacci sequence: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377. Each term is the sum of the two before it.</p>
+
+<h3>How the function was built</h3>
+
+<ol>
+<li>
+<p>Sort the fifteen chips of PRN 1. The gaps, small to large, are 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377. That is the Fibonacci sequence.</p>
+</li>
+<li>
+<p>The largest chip is 1020. Start there. Subtract <code>fibonacci(1)</code>, then <code>fibonacci(2)</code>, and so on. Each landing is one of the fifteen chips. The last landing is 34.</p>
+</li>
+<li>
+<p>The next Fibonacci number is 610. 34 − 610 = −576. −576 is not a chip index. The walk must stop before that subtraction. That is why the loop tests <code>x - fibonacci(i) &gt;= 0</code> before it changes <code>x</code>. A loop that subtracts first, then checks <code>x &gt; 0</code>, would append −576.</p>
+</li>
+<li>
+<p>PRN 2 has the same fifteen chips, each two indexes lower. PRN 3 is four lower. PRN <code>s</code> is <code>2(s − 1)</code> lower.</p>
+</li>
+</ol>
+
+<ol start="5">
+<li>
+<p>The start chip for PRN <code>s</code> is <code>1020 − 2(s − 1)</code>. If the argument is the PRN number, and it starts at 1, that is the same number as <code>1022 − 2 * prn_index</code>. PRN 1 starts at 1020. PRN 12 starts at 998. That is the first line of the function.</p>
+</li>
+<li>
+<p>The rest of the function is the walk from that start chip. Put the start chip in the list. Then subtract <code>fibonacci(1)</code>, <code>fibonacci(2)</code>, and so on, and keep a landing only when it is at least 0. Three chips from this walk are 34, 411, and 644. They are the last three steps, 377, 233, and 144.</p>
+</li>
+<li>
+<p><code>flipped_chips(12)</code> includes 12 and 998. Those are 34 − 22 and 1020 − 22. The function returns 15 chips for each of PRNs 1 through 12. On recording 1 those chips are exactly the recovered set.</p>
+</li>
+</ol>
+
+<h2 id="s7">Does this explain the file?</h2>
+
+<p>Fifteen flipped chips change a code in 15 of 1,023 places. The recovered code and the nominal code agree on 1,008 chips. They disagree on 15.</p>
+
+<p>The correlation is not that count. Each chip is +1 or −1. An agreeing chip adds +1 to the inner product. A disagreeing chip adds −1. Fifteen disagreements therefore remove 30 from the all-agree sum of 1,023:</p>
+
+<div class="math">$$1008(+1) + 15(-1) = 993, \qquad \frac{993}{1023} = 0.9707, \qquad 20\log_{10}(993/1023) = -0.259\ \text{dB}$$</div>
+
+<p>The modified replica can gain at most about +0.259 dB over the nominal one. The published solution, on this file, measures +0.188 to +0.338 dB per PRN. The mean is +0.249 dB. PRN 9 lands at +0.338 dB, above the expected value. That is noise on one satellite. The held-out count still peaks at 15. A wrong chip lowers the left-out correlation.</p>
+
+<p>Rebuild every satellite from the recovered codes and subtract. The numbers are in <code>data/gnss_observation_solution.json</code>.</p>
+
+<table>
+<tbody>
+<tr><th></th><th>Residual power</th></tr>
+<tr><td>Nominal codes</td><td class="num">1.042</td></tr>
+<tr><td>Recovered codes</td><td class="num">0.991</td></tr>
+<tr><td>Noise variance</td><td class="num">1.051</td></tr>
+</tbody>
+</table>
+
+<p>The recovered model leaves the noise floor. The nominal model leaves extra power. That extra power is the part of the signal the flips hid.</p>
+
+<p>Recording 1 declares <code>random_seed = 20261111</code>. Rebuild that noise and subtract it. The recovered codes then match the file at correlation 0.9998. The nominal codes match at 0.9858. <code>FINDINGS.md</code> records this check. It confirms the positions. The Fibonacci reading comes from the equality in step 6.</p>
+
+<h2 id="s9">Recording 2 is noisier, so chip 987 looks missing</h2>
+
+<p><code>gnss_observation2.nc</code> has the same twelve PRNs and the same slope, 2 chips per PRN index. The signals are fainter. Published C/N0 is 44.1 to 48.0 dB-Hz, against 54.1 to 54.9 on recording 1. Per-sample amplitude is about 0.12 to 0.15, against 0.28. Eight milliseconds of a fainter signal gives a noisier chip reading.</p>
+
+<p>After the align-and-add, a flip is a negative consensus. Thirteen of the fifteen rule chips are clearly negative, from −1.38σ to −3.69σ. The other two are the weakest of that fifteen, not chip numbers 14 and 15.</p>
+
+<table>
+<tbody>
+<tr><th>Chip</th><th>Among the 15</th><th>Consensus</th><th>PRNs negative</th><th>Reading</th></tr>
+<tr><td class="num">1008</td><td>2nd weakest</td><td class="num">−0.92σ</td><td class="num">9 / 12</td><td>still a flip, a weak one</td></tr>
+<tr><td class="num">987</td><td>weakest</td><td class="num">−0.42σ</td><td class="num">6 / 12</td><td>half the PRNs disagree</td></tr>
+<tr><td>other 13</td><td>stronger</td><td class="num">−1.38 to −3.69σ</td><td class="num">7 to 12 / 12</td><td>same chips as recording 1</td></tr>
+</tbody>
+</table>
+
+<p>Asked to name chips with no list supplied, this file keeps 14 and drops 987. Build the mask on 11 PRNs and score the 12th. The best count is 14, at +0.235 dB. Adding 1008 to a 13-chip core raises that gain by 0.010 dB. Adding 987 lowers it by 0.009 dB.</p>
+
+<h3>Does a real flip read this low?</h3>
+
+<p>In the table above, a flip is negative. For the test below, the sign is turned around, so a clean flip reads +1 and an unflipped chip reads about 0. Chip 987 then reads +0.14 ± 0.31. A clean flip on this file would read about +1. +0.14 is a third of the error bar.</p>
+
+<p>Another pass over this file cannot tell a skipped chip from a bad noise draw. The test is a new recording, with the flip put in on purpose, at this strength.</p>
+
+<p>One point needs care. Recording 2's twelve PRNs span 44.1 to 48.0 dB-Hz, mean 46.5. The trials below ran at 47.5 dB-Hz, near the loud end of that range. A single run at one level cannot cover a 4 dB spread. 47.5 tests the easy end of this file.</p>
+
+<p>The same chain, recording 2's Dopplers, a known 15-chip mask, and 8 ms, ran for 1000 trials at 47.5 dB-Hz. The score is whether the planted 15 chips came back exactly.</p>
+
+<table>
+<tbody>
+<tr><th></th><th>Lowest true flip</th><th>Chips kept</th></tr>
+<tr><td>clean flip, no noise</td><td class="num">+1.00</td><td class="num">15</td></tr>
+<tr><td>recording 2, chip 987</td><td class="num">+0.14</td><td class="num">14</td></tr>
+<tr><td>1000 trials, 47.5 dB-Hz, truth known</td><td class="num">exact set 839 / 1000</td><td class="num">75 drop 1, 9 drop 2, 76 add extras, 1 swap</td></tr>
+<tr><td>100 trials, 55 dB-Hz, truth known</td><td class="num">median +0.77, worst +0.61</td><td class="num">15 in 100</td></tr>
+<tr><td>recording 1, chip 987</td><td class="num">+0.98</td><td class="num">15</td></tr>
+</tbody>
+</table>
+
+<p>At 47.5 dB-Hz the exact 15-chip set came back in 839 of 1000 trials. What that means for recording 2 is the next section; the figure below places the two files against the floor that this section is about.</p>
+
+<figure class="chart">
+<img class="chart-light" src="assets/cn0_vs_duration_light.svg" width="900" height="544"
+  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
+<img class="chart-dark" src="assets/cn0_vs_duration_dark.svg" width="900" height="544"
+  alt="C/N0 needed for full recovery against record length: the floor falls about 3.4 dB per doubling of the record, with the two supplied recordings shaded at 8 ms.">
+<figcaption>Each band is one recording's C/N0 span, which does not depend on record length; the vertical rule marks the 8 ms we actually have. At 8 code periods the floor is 49.4 dB-Hz, so recording 2 (44.1 to 48) is under it and recording 1 (54.1 to 54.9) is clear, which is why recording 2's weakest chip is the one the count drops. Each point is 100 independent recordings, scored by an exact 15-chip recovery.</figcaption>
+</figure>
+
+<p>At 55 dB-Hz the 100 trials never dropped a chip, and the lowest true flip stayed above +0.61. Recording 1 reads chip 987 at +0.98. Same chip, stronger signal, obvious flip.</p>
+
+<p>Chip 1008 is not in that tail. Nine of twelve PRNs read it negative, and adding it raises the held-out gain. The chip that looks missing is 987.</p>
+
+<h3>Why this is noise, not a second rule</h3>
+
+<p>The extractor is not robust at 47.5 dB-Hz. In 1000 trials with a known 15-chip mask, the same chain, and recording 2's Dopplers, it returned the exact set 839 times. Of the 161 misses, 75 dropped one true chip and added nothing. That is the failure recording 2 shows. Nine dropped two true chips and added nothing. 76 kept all 15 true chips and added extras. One reported 15 chips but swapped one of them. Any mistake is 16 in 100. A single dropped chip is 7.5 in 100.</p>
+
+<p>Recording 1 is the file where that extractor does not drop chips: 100 of 100 trials at 55 dB-Hz returned the exact set. On that file, chip 987 reads +0.98. The same chip is flipped there. A rule that omits 987 cannot explain recording 1.</p>
+
+<p>The other hypothesis is that recording 2 has the Fibonacci walk with one term deleted. Deleting 987 joins the gaps 13 and 21 into 34, so the steps are no longer the Fibonacci sequence. That deletion would also have to be invisible on recording 1, where the same chip is one of the strongest flips. Recording 2 is the file at the noise level where the extractor drops one chip about 75 times in 1000. The dropped chip is the one the stronger file already measured.</p>
+
+<p>A search with no list supplied still stops at 14 on recording 2. Its posterior is P(14) = 0.9996. That is the extractor's count, not a second generator. Asked only about named chip 987, the same file prefers a flip by 36:1.</p>
+
+<h2 id="s10">Where the chain breaks</h2>
+
+<p>The two assignment files are one point. <code>python benchmark.py</code> sweeps around that point, two noise seeds per cell. <code>python breakpoints.py</code> then measures a rate at each value: 100 independent recordings per point, bisected until the passing and breaking ends are one step apart. Neither reads <code>gnss_observation.nc</code> or <code>gnss_observation2.nc</code>.</p>
+<p>Both build new recordings from the same signal model. The flipped chips, the Doppler and the delays are known before the chain runs.</p>
+
+<p>A run passes only when every PRN is found, none extra, the shift is the true shift, and the recovered flip set matches the truth exactly. Doppler error, residual power and flip precision are recorded either way. One axis moves at a time. Everything else stays at the assignment case: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms, slope 2.</p>
+
+
+
+<table>
+<tbody>
+<tr><th>Axis</th><th>Still exact</th><th>Where it breaks</th></tr>
+<tr><td>C/N0</td><td>The 95% edge is 49.4 dB-Hz. At 55 dB-Hz, 100 of 100 trials return the exact 15. At 47.5, 83 of 100 do; a 1000-trial run with recording 2's Dopplers, which is a different set of draws, returned 839.</td><td>45 dB-Hz still finds all 12 PRNs. Only 26 of 100 then recover every chip. At 40, none do.</td></tr>
+<tr><td>Flipped chips</td><td>3 to about 240 of 1023. One run at 200 came back one chip short.</td><td>At 320 the shift search locks onto 343 or 684, about 1023/3 and 2 times 1023/3. At 400, 4 to 6 of 12 PRNs are detected. At 500, none are. A code flipped in K places keeps (1023 − 2K)/1023 of the nominal correlation. Acquisition then fades.</td></tr>
+<tr><td>How many PRNs</td><td>4 to 30 recover every chip in both seeds at 52 dB-Hz. The 95% edge is 7 PRNs; 6 gives 94 of 100.</td><td>1 PRN has nothing to shift against, so the slope is undefined. 2 to 3 miss chips. From 40 up, detection starts dropping PRNs: 78 of 80 at 80 PRNs, 197 to 202 of 210 at 210.</td></tr>
+<tr><td>Record length</td><td>4 ms in both seeds. Over 100 signals per point the 95% edge is 5 code periods; 4 ms gives 94 of 100.</td><td>2 ms loses chips. Two code periods are not enough to fit the phase slope and read the mask.</td></tr>
+<tr><td>Doppler</td><td>All 12 at 0 Hz, within ±2 Hz, within ±20 Hz. Out to ±5.5 kHz with the default span.</td><td>±5.8 kHz is outside the span, so it is invisible. Widen the span and ±6, ±10, ±15, ±20 and ±30 kHz come back exact. The limit is the search window.</td></tr>
+<tr><td>Data bit flips mid-record</td><td>Exact. Worst Doppler error 3.7 Hz.</td><td>Before the sign pattern was in the fit, the same case returned about 100 Hz and claimed ±1.5 Hz.</td></tr>
+<tr><td>No shared rule, or no flips</td><td>Reports 0 chips at 0.000 dB.</td><td>Does not invent a mask. That is the pass.</td></tr>
+</tbody>
+</table>
+
+<p>You can decide a chip only after you stack the PRNs. Twelve PRNs buy $\sqrt{12}$, about 10.8 dB. Four PRNs buy 6 dB. That is why 2 to 4 PRNs miss chips.</p>
+<p>A 2 ms record has less of the same gain, so it fails. A 4 ms record does not. If you flip too many chips, the nominal code no longer correlates. The search then never reaches the mask.</p>
+
+<p>The assignment case is inside the exact region: 12 PRNs, 55 dB-Hz, 15 flips, 8 ms. Recording 2 sits on the C/N0 edge. That is why its 15th chip is the one the count can drop. <a href="BENCHMARK.md">BENCHMARK.md</a> has the seed-by-seed tables.</p>
+
+<h2 id="s8">The path, in one line each</h2>
+
+<ol>
+<li>Search code × Doppler. Twelve PRNs, C/N0 about 55 dB-Hz, Doppler to about 2 Hz, code phase on the sample grid. Data bit constant. Absolute sign absorbed in the carrier phase.</li>
+<li>Project out the other eleven. One complex amplitude each. Own flips remain as minus chips.</li>
+<li>Eight periods still leave 21 to 38 negative chips per PRN, against 15 real flips. One PRN misses a real flip. A threshold cannot finish the job.</li>
+<li>One PRN cannot name its flips. A shared index list, or a shifted copy of that list, were the two rules worth testing. Circular correlation of every pair peaks at $-2(i-j)$.</li>
+<li>Roll, average. Exactly fifteen chips go negative. The sixteenth stays positive, nine standard deviations away.</li>
+<li>The gaps, small to large, are the Fibonacci sequence. <code>flipped_chips(prn)</code> starts at <code>1022 - 2*prn</code> and steps back by <code>fibonacci(i)</code> while the result stays at least 0.</li>
+<li>Recording 2 is the same mask, with lower C/N0, so the chip readings are noisier. Chip 987 reads +0.14. At 47.5 dB-Hz with recording 2's Dopplers, 89 of 100 trials returned the exact set; the longer 1000-trial run at the same level returned 839, with 75 of those 1000 dropping one chip. Both counts come from their own draw sets, not from one run split two ways.</li>
+<li>The chain was broken on purpose, one axis at a time, then bisected over 100 independent recordings per point. The 95% edge is 49.4 dB-Hz, 5 code periods of record, 7 PRNs at the low end, 32 at the high end, and 140 flipped chips. Outside the Doppler span it was given, it finds nothing. With no shared rule, it reports 0 chips.</li>
+</ol>
+
+<footer>
+<p class="kicker">Parameter table: <code>data/gnss_observation_acquisition.csv</code>, written by <code>solve.py</code>. Modified positions and transmitted codes: <a href="solve.py">solve.py</a>. The closed form is checked against every recovered flip list in <code>solve.py</code> and recorded per PRN in <code>rule.closed_form_matches</code> inside <code>*_solution.json</code>. Residual powers and recording 2: the published <code>*_solution.json</code> files. The data-bit signs, the per-PRN false-alarm counts, the 66-pair lag matrix, and the aligned consensus were measured on <code>gnss_observation.nc</code> with this repo’s chip readout. The seed-subtraction correlation and the recording-2 chip readings were not re-run for this page. Those numbers are the published checks in <code>FINDINGS.md</code>. The 1000-trial noise test was re-run for this page, at 47.5 dB-Hz. The break-points are from <code>BENCHMARK.md</code>, not re-run for this page.</p>
+<p class="kicker">This page as a light-theme PDF: <a href="solution-workthrough.pdf">solution-workthrough.pdf</a>.</p>
+<p class="kicker">Intuition before this path: <a href="lessons/0001-one-band-twelve-signals.html">lesson 1</a>, <a href="lessons/0002-from-peak-to-prompt.html">lesson 2</a>. The same derivation in prose: <a href="SOLUTION.md">SOLUTION.md</a>.</p>
+</footer>
+
+</main>
+</div>
+<script src="assets/math.js"></script>
+<script>
+(function () {
+  var button = document.getElementById("theme");
+  var heat = document.getElementById("lag-heat");
+
+  function mix(a, b, t) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t)
+    ];
+  }
+
+  function paintHeat() {
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    var zero = dark ? [33, 37, 43] : [244, 245, 247];
+    var neg = dark ? [110, 168, 214] : [27, 74, 130];
+    var pos = dark ? [214, 154, 84] : [168, 84, 28];
+    var cells = heat.querySelectorAll("td");
+    for (var i = 0; i < cells.length; i++) {
+      var lag = Number(cells[i].getAttribute("data-lag"));
+      var rgb = mix(zero, lag < 0 ? neg : pos, Math.abs(lag) / 22);
+      var lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+      cells[i].style.background = "rgb(" + rgb.join(",") + ")";
+      cells[i].style.color = lum > 0.62 ? "#1a1d21" : "#f4f5f7";
+    }
+  }
+
+  if (!heat.querySelector("td")) {
+    var headRow = document.createElement("tr");
+    headRow.appendChild(document.createElement("th"));
+    for (var col = 1; col <= 12; col++) {
+      var colHead = document.createElement("th");
+      colHead.textContent = String(col);
+      headRow.appendChild(colHead);
+    }
+    heat.appendChild(headRow);
+    for (var row = 1; row <= 12; row++) {
+      var tr = document.createElement("tr");
+      var rowHead = document.createElement("th");
+      rowHead.textContent = String(row);
+      tr.appendChild(rowHead);
+      for (var c = 1; c <= 12; c++) {
+        var lag = 2 * (c - row);
+        var text = lag > 0 ? "+" + lag : String(lag);
+        var cell = document.createElement("td");
+        cell.setAttribute("data-lag", String(lag));
+        if (lag === 0) cell.className = "zero";
+        cell.title = "PRN " + row + " vs PRN " + c + ": " + text + " chips";
+        cell.textContent = text;
+        tr.appendChild(cell);
+      }
+      heat.appendChild(tr);
+    }
+  }
+  paintHeat();
+
+  function label() {
+    button.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "Light" : "Dark";
+  }
+  label();
+  button.addEventListener("click", function () {
+    var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("solution-theme", next);
+    label();
+    paintHeat();
+  });
+})();
+</script>
+</body>
+</html>

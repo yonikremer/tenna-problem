@@ -19,19 +19,24 @@ task: find the satellites, recover the modification, state the rule, and prove i
 
 ## 2. The answer
 
-PRN `s` flips the chips
+`prn_index` is the PRN number, starting at 1.
 
-```text
-base[k] - 2 * (s - 1)   mod 1023
+```python
+def flipped_chips(prn_index: int) -> list[int]:
+    x = 1022 - 2 * prn_index
+    chips = [x]
+    i = 1
+    while x - fibonacci(i) >= 0:
+        x = x - fibonacci(i)
+        chips.append(x)
+        i += 1
+    return chips
 ```
 
-where `base` is the prefix sums of the Fibonacci numbers counted backwards from chip 1020:
+`sorted(flipped_chips(1))` is
 
 ```text
-base = { (1020 - sum(Fibonacci[0:k])) mod 1023 : k = 0..14 }
-Fibonacci = 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377
-
-base = 34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
+34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
 ```
 
 Fifteen positions, shifted **two chips per PRN index**. Recording 1 supports all fifteen; recording 2
@@ -236,7 +241,7 @@ is decided, and the one position that recording cannot confirm is `987` (see sec
 The recovered base pattern is not arbitrary. Take the Fibonacci numbers, accumulate them, and walk
 backwards from chip 1020:
 
-| k | Fibonacci | cumulative | chip = (1020 - cumulative) mod 1023 |
+| k | Fibonacci | cumulative | chip = 1020 - cumulative |
 | --- | --- | --- | --- |
 | 0 | – | 0 | 1020 |
 | 1 | 1 | 1 | 1019 |
@@ -255,13 +260,13 @@ backwards from chip 1020:
 | 14 | 377 | 986 | 34 |
 
 That is the recovered set exactly, and `gnss/rule.py` checks it rather than asserting it: on recording
-1 it reports *matches that rule exactly (15/15 positions)*; on recording 2 it reports *13 of 15*
-and names `987` and `1008` as positions this recording cannot confirm, adding that an unsupported
-position is a sensitivity limit, not a different pattern.
+1 it reports *matches that rule exactly (15/15 positions)*; on recording 2 it reports *14 of 15*
+and names `987` as the position this recording cannot confirm, adding that an unsupported position
+is a sensitivity limit, not a different pattern.
 
 The generator's structure is therefore: a 15-position sparse mask, the mask shifted by two chips per
 PRN index. Equivalently, chip `i` of PRN `s` is flipped when
-`(i + 2(s-1)) mod 1023` is a backward cumulative Fibonacci sum. The Fibonacci interpretation is an
+`i + 2(s-1)` is a backward cumulative Fibonacci sum. The subtraction does not wrap: the smallest base chip is 34 and the largest shift on these PRNs is 22, so each PRN still has exactly 15 flips. A modulo wrap would invent further indexes, and those indexes are not flipped. The Fibonacci interpretation is an
 observation about the recovered positions; it is not proof of the generator's intent, and
 `FINDINGS.md` says so.
 
@@ -282,16 +287,18 @@ The recovered model leaves noise and nothing else. The nominal model leaves extr
 power is exactly the part of the signal the flips were hiding.
 
 **Correlation gain, with a known ceiling.** Fifteen flipped chips change a code at 15 of 1023 places,
-so the recovered code correlates with amplitude `(1023 - 2*15)/1023 = 993/1023` of the nominal one:
+so they agree on `1023 - 15 = 1008` chips. The correlation is not that count: each disagreement
+contributes -1 instead of +1, so the inner product is `(1023 - 2*15)/1023 = 993/1023` of the nominal one:
 
 ```text
 20 * log10(993/1023) = -0.259 dB      i.e. a ceiling of +0.259 dB of gain over the nominal code
 ```
 
-Measured gain per satellite: **+0.188 to +0.338 dB, mean +0.249** on recording 1 — every satellite
-inside the ceiling band, so no recovered chip is wrong. On recording 2: +0.078 to +0.439, mean +0.255,
-ceiling +0.241: a wider spread because that recording is weaker, and it is the honest picture of a
-14-position recovery.
+Measured gain per satellite: **+0.188 to +0.338 dB, mean +0.249** on recording 1. All twelve sit
+within noise of the +0.259 dB ceiling; PRN 9 reads 0.042 dB above it, and the held-out count still
+peaks at 15, which is the test that a wrong chip would fail. On recording 2: +0.078 to +0.439, mean
++0.255, ceiling +0.241: a wider spread because that recording is noisier, and it is the honest
+picture of a 14-position recovery.
 
 ## 12. Step 9 — where it stops working
 
@@ -300,10 +307,10 @@ Generated recordings with known truth, one axis at a time (`python benchmark.py`
 
 | axis | result |
 | --- | --- |
-| C/N0 per PRN | exact in 57 of 60 known-truth runs at 47.5 dB-Hz, 30 of 30 at 55; at 45 dB-Hz 73–80% of chips |
-| flipped chips per PRN | exact to ~240 of 1023; soft edge above, detection fails from 400 |
-| PRNs at 52 dB-Hz | exact from 6; 2–4 PRNs miss 7–13% |
-| record length | 4 ms and longer exact; 2 ms misses 13–40% |
+| C/N0 per PRN | 95% edge **49.4 dB-Hz** over 100 signals per point; the two-seed sweep is exact in both seeds to 51 dB-Hz. At 47.5 dB-Hz, 1000 trials with a known mask recovered the exact 15-chip set 839 times: 75 dropped one chip, 9 dropped two, 76 kept all 15 and added extras, 1 swapped one. At 55 dB-Hz, 100 of 100. At 45 dB-Hz, 26 of 100 |
+| flipped chips per PRN | exact in both seeds to **160** of 1023; 95% edge **140 chips**; the shift search fails at 320, detection fails from 400 |
+| PRNs at 52 dB-Hz | exact in both seeds from **4**; 95% edge at **7 PRNs**; 2–3 PRNs miss 7–13% |
+| record length | exact in both seeds from **4 ms**; 95% edge **5 code periods** (4 ms: 94 of 100); 2 ms misses 13–40% |
 | Doppler | exact at 0 Hz, ±2 Hz, ±20 Hz; ±5.5 kHz with the default span; **±6 to ±30 kHz when the span is widened** |
 | data bit flipping mid-record | exact, worst Doppler error 3.7 Hz |
 | no shared rule / no modification | 0 chips at 0.000 dB — no rule invented |
@@ -326,13 +333,16 @@ python solve.py                              # both recordings in data/, full re
 python solve.py data/gnss_observation.nc      # one
 python solve.py data/gnss_observation.nc --satellites 1-12    # faster, known constellation
 python benchmark.py                          # regenerate BENCHMARK.md
-python -m pytest                             # 134 tests, 96% coverage of gnss/
+python -m pytest                             # 181 tests, 95% coverage of gnss/
 ```
 
 `data/` holds the recordings and every artifact produced from them:
-`<name>_acquisition.csv` (parameters per PRN), `<name>_joint_flips.csv` (the answer, one row per flipped
-chip), `<name>_solution.json` (the same answer plus the pattern check and the evidence). Generated test
-fixtures live in `data/tests/` and benchmark recordings in `data/benchmark/`.
+`<name>_acquisition.csv` (parameters per PRN, regenerated by `solve.py` and not tracked in git),
+`<name>_joint_flips.csv` (the answer, one row per flipped chip), `<name>_modified_positions.csv` and
+`<name>_transmitted_codes.csv` / `.npz` (every PRN's 1023-chip code before and after), and
+`<name>_solution.json` (the same answer plus the pattern check and the evidence). Generated test
+fixtures live in `data/tests/`, benchmark recordings in `data/benchmark/`, and the break-point probe
+cache in `data/breakpoints/`.
 
 ## 14. Module map
 
