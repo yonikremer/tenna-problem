@@ -1,35 +1,39 @@
 """Locate where the recovery chain breaks on each axis, by bisection over 100 signals per point.
 
-`benchmark.py` sweeps a fixed grid with two noise seeds per point. Two seeds can only report 0/2,
-1/2 or 2/2, so the grid shows *that* a break exists but not *where*: the difference between a
-method that works 100% of the time and one that works half the time is one row apart.
+This is the second half of `BENCHMARK.md`, not a separate document: it renders the `## Break points`
+section, either into the report the benchmark writes or into an existing report, replacing only that
+section. `python benchmark.py` fills the sweep half and calls in here for the other; `python
+breakpoints.py` measures the probes and then rewrites its own section in place, so the back of the
+report never goes stale.
 
-This script asks the sharper question. At one value of one axis it runs `--signals` independent
-signals (100 by default) and measures the fraction that recovers exactly, then bisects on the value
-until the passing end and the breaking end of the bracket are `resolution` apart. Every probe runs
-the same seeds (common random numbers), so adjacent probes differ in the parameter and not in the
-noise draw, and the located edge is a property of that seed set rather than of a lucky draw.
+Why it exists at all: `benchmark.py` sweeps a fixed grid with two noise seeds per point. Two seeds
+can only report 0/2, 1/2 or 2/2, so the grid shows *that* a break exists but not *where* - the
+difference between a method that works every time and one that works half the time is one row apart.
+
+So each probe runs `--signals` independent recordings (100 by default) at one value of one axis,
+measures the fraction that recover exactly, and the value is bisected until the passing and breaking
+ends are one resolution apart. Every probe reuses the same seeds (common random numbers), so adjacent
+probes differ in the parameter and not in the noise draw.
 
 Three things make the answer honest:
 
   - The criterion is a rate, not a single run: the default is that at least 95 of 100 signals
-    recover, which is the claim the benchmark's prose actually wants to make.
-  - Binomial noise is quoted, not hidden: the Wilson interval of every probe is printed, and the
-    resolution of each axis is chosen so the bisection does not pretend to be finer than the
-    sampling allows (100 signals cannot resolve a rate better than about +-2 points near 95%).
+    recover, which is the claim the prose actually wants to make.
+  - Binomial noise is quoted, not hidden: the Wilson interval of every probe is printed, and each
+    axis's resolution is chosen so the bisection does not pretend to be finer than the sampling
+    allows (100 signals cannot resolve a rate better than about +-2 points near 95%).
   - The bracket is checked, not assumed. If the "known good" end does not reach the criterion, or
-    the "known bad" end does, the run says so and stops instead of bisecting on nonsense.
+    the "known bad" end does, the axis says so and stops instead of bisecting on nonsense.
 
 Bisection needs the pass rate to be monotone between the two ends. Where the chain is not monotone
 the two edges are searched separately: the PRN count fails both below a minimum (one PRN cannot
 define a shared shift, and the combining gain that decides a chip is not there) and above a maximum
-(a dense modification leaves too little of the nominal code to detect). Both edges are listed.
+(a dense modification leaves too little of the nominal code to detect).
 
 Usage:
     python breakpoints.py                       # every axis, 100 signals per probe
     python breakpoints.py --signals 50          # coarser and quicker
-    python breakpoints.py --axes cn0 flip_count  # named axes only
-    python breakpoints.py --out BREAKPOINTS.md
+    python breakpoints.py --axes cn0 flip_count # named axes only
 """
 
 import argparse
@@ -45,6 +49,10 @@ from benchmark import Scenario, score, synthesise
 
 WORK_DIR = Path("data/breakpoints")
 CACHE_PATH = Path("data/breakpoints/probes.json")
+REPORT_PATH = Path("BENCHMARK.md")
+
+# The heading this module owns in BENCHMARK.md. Everything from here down is replaced on a rerun.
+SECTION_HEADING = "## Break points"
 
 # A recovered recording counts when every PRN was found with no false alarm, the shift is right and
 # the recovered flip set matches the truth exactly - the same `verdict` the benchmark reports.
@@ -86,9 +94,7 @@ AXES = {
         breaking=40.0,
         resolution=0.25,
         unit="dB-Hz",
-        build=lambda value, seed: Scenario(
-            label=f"probe-seed{seed}", cn0_dbhz=value, seed=seed
-        ),
+        build=lambda value, seed: Scenario(label=f"probe-seed{seed}", cn0_dbhz=value, seed=seed),
     ),
     "flip_count": Axis(
         name="flip_count",
@@ -171,8 +177,12 @@ def _speed_to_cover(doppler_hz: float) -> float:
     return benchmark.receiver_speed_to_cover(doppler_hz)
 
 
+def probe_key(axis: "Axis", value: float) -> str:
+    return f"{axis.name}@{value:g}"
+
+
 def wilson_interval(passes: int, signals: int, z: float = 1.96) -> tuple:
-    """95% interval of a binomial rate, which is the only honest error bar for a 100-signal probe."""
+    """95% interval of a binomial rate, which is the only honest error bar for a probe."""
     if signals <= 0:
         return 0.0, 1.0
     rate = passes / signals
@@ -182,13 +192,13 @@ def wilson_interval(passes: int, signals: int, z: float = 1.96) -> tuple:
     return max(0.0, centre - half), min(1.0, centre + half)
 
 
-def measure(axis: Axis, value: float, signals: int, cache: dict) -> tuple:
+def measure(axis: Axis, value: float, signals: int, criterion: float, cache: dict) -> tuple:
     """Run `signals` independent recordings at one value; return (passes, seconds measured).
 
     A cached probe still reports the time it took when it was measured: the cost of the evidence
     does not disappear because a rerun is free.
     """
-    key = f"{axis.name}@{value:g}"
+    key = probe_key(axis, value)
     if key in cache:
         return cache[key]["passes"], cache[key].get("seconds", 0.0)
     started = time.perf_counter()
@@ -199,8 +209,24 @@ def measure(axis: Axis, value: float, signals: int, cache: dict) -> tuple:
         result = score(scenario, truth, path)
         passes += result["verdict"] in PASSING_VERDICTS
     elapsed = time.perf_counter() - started
-    cache[key] = {"passes": passes, "signals": signals, "seconds": round(elapsed, 3)}
+    cache[key] = {
+        "passes": passes,
+        "signals": signals,
+        "criterion": criterion,
+        "seconds": round(elapsed, 3),
+    }
     return passes, elapsed
+
+
+def cache_only(axis: Axis, value: float, signals: int, criterion: float, cache: dict) -> tuple:
+    """A probe that refuses to run: rendering a report must never start 100 recordings."""
+    key = probe_key(axis, value)
+    if key not in cache:
+        raise KeyError(
+            f"{key} is not in {CACHE_PATH}; run `python breakpoints.py` to measure it before "
+            f"rendering the report"
+        )
+    return cache[key]["passes"], cache[key].get("seconds", 0.0)
 
 
 def bisect(passing, breaking, rate_of, criterion: float, resolution: float, max_probes: int = 14):
@@ -227,10 +253,17 @@ def bisect(passing, breaking, rate_of, criterion: float, resolution: float, max_
     return passing, breaking, trace
 
 
-def locate(axis: Axis, signals: int, criterion: float, cache: dict) -> dict:
+def locate(
+    axis: Axis,
+    signals: int,
+    criterion: float,
+    cache: dict,
+    probe: Callable | None = None,
+) -> dict:
     """Bisect one axis, and check that both ends of the bracket behave as declared."""
-    passes_good, seconds_good = measure(axis, axis.snap(axis.passing), signals, cache)
-    passes_bad, seconds_bad = measure(axis, axis.snap(axis.breaking), signals, cache)
+    probe = probe or measure
+    passes_good, seconds_good = probe(axis, axis.snap(axis.passing), signals, criterion, cache)
+    passes_bad, seconds_bad = probe(axis, axis.snap(axis.breaking), signals, criterion, cache)
     spent = [seconds_good, seconds_bad]
     record = {
         "axis": axis.name,
@@ -257,8 +290,9 @@ def locate(axis: Axis, signals: int, criterion: float, cache: dict) -> dict:
             f"the break is outside the bracket"
         )
     else:
+
         def rate_of(value):
-            passes, seconds = measure(axis, axis.snap(value), signals, cache)
+            passes, seconds = probe(axis, axis.snap(value), signals, criterion, cache)
             spent.append(seconds)
             return passes / signals
 
@@ -267,7 +301,7 @@ def locate(axis: Axis, signals: int, criterion: float, cache: dict) -> dict:
         )
         record["located"] = (passing, breaking)
         for value, rate in trace:
-            passes, seconds = measure(axis, axis.snap(value), signals, cache)
+            passes, seconds = probe(axis, axis.snap(value), signals, criterion, cache)
             spent.append(seconds)
             record["trace"].append((axis.snap(value), passes, rate))
     # the cost of the probes, not the wall clock of this run: a cached probe still cost something
@@ -275,15 +309,21 @@ def locate(axis: Axis, signals: int, criterion: float, cache: dict) -> dict:
     return record
 
 
+def _interval_text(passes: int, signals: int) -> str:
+    low, high = wilson_interval(passes, signals)
+    return f"{100 * low:.0f}% to {100 * high:.0f}%"
+
+
 def report(records: list, signals: int, criterion: float, wall_seconds: float) -> list:
-    """The located edge per axis, then the probes that located it."""
+    """The `## Break points` section: the located edge per axis, then the probes that located it."""
+    h = "##"
     lines = [
-        "# Where the chain breaks, measured over independent signals",
+        f"{h} Break points, measured over independent signals",
         "",
         f"Generated with `python breakpoints.py --signals {signals}`. Each probe runs **{signals} "
         "independent recordings** (one per seed) at one value of one axis and counts how many "
         "recover exactly, then the value is bisected until the passing and breaking ends are one "
-        "resolution apart. `benchmark.py` uses two seeds per point, which can only say 0/2, 1/2 or "
+        "resolution apart. The sweeps above use two seeds per point, which can only say 0/2, 1/2 or "
         "2/2; this can say 91 of 100.",
         "",
         f"A signal counts as recovered when the verdict is `pass`: every PRN found with no false "
@@ -291,7 +331,7 @@ def report(records: list, signals: int, criterion: float, wall_seconds: float) -
         f"**{round(criterion * signals)} of {signals}** signals. Every probe reuses the same seeds, "
         "so adjacent probes differ in the parameter and not in the noise draw.",
         "",
-        "## Located edges",
+        f"{h}# Located edges",
         "",
         "| axis | question | edge | rate at the edge | 95% interval | next value fails at |",
         "| --- | --- | --- | --- | --- | --- |",
@@ -315,7 +355,7 @@ def report(records: list, signals: int, criterion: float, wall_seconds: float) -
         )
 
     for record in records:
-        lines.extend(["", f"## {record['axis']}", "", record["question"], ""])
+        lines.extend(["", f"{h}# {record['axis']}", "", record["question"], ""])
         if record["error"]:
             lines.append(f"**Bracket wrong.** {record['error']}")
             continue
@@ -355,7 +395,7 @@ def report(records: list, signals: int, criterion: float, wall_seconds: float) -
     lines.extend(
         [
             "",
-            "## Cost",
+            f"{h}# Cost",
             "",
             f"{len(records)} axes, {probes} probes, {signals} signals per probe: "
             f"{probes * signals} recordings scored in {measured / 60:.1f} min "
@@ -368,9 +408,76 @@ def report(records: list, signals: int, criterion: float, wall_seconds: float) -
     return lines
 
 
-def _interval_text(passes: int, signals: int) -> str:
-    low, high = wilson_interval(passes, signals)
-    return f"{100 * low:.0f}% to {100 * high:.0f}%"
+def load_cache(path: Path = CACHE_PATH) -> dict:
+    """The probe cache, or an empty one if it is missing or unreadable."""
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_cache(cache: dict, path: Path = CACHE_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
+
+
+def cached_section(cache_path: Path = CACHE_PATH) -> list:
+    """The section rendered from the cache alone, for `benchmark.py` to append to its report.
+
+    Never measures: a report run must not start four thousand recordings because a probe is missing.
+    An empty or inconsistent cache produces a line that says so, so the section can never silently
+    disappear and never quietly show a different experiment's numbers.
+    """
+    cache = load_cache(cache_path)
+    if not cache:
+        return [
+            SECTION_HEADING,
+            "",
+            "No probes measured yet, so this section is empty. Each sweep above uses two noise seeds "
+            "per point, which cannot say where a break is. Run `python breakpoints.py` to measure "
+            "it over 100 independent signals per point and fill this in.",
+            "",
+        ]
+    counts = {entry.get("signals") for entry in cache.values()}
+    criteria = {entry.get("criterion") for entry in cache.values()}
+    if None in counts or None in criteria or len(counts) != 1 or len(criteria) != 1:
+        return [
+            SECTION_HEADING,
+            "",
+            f"The probe cache at `{cache_path}` does not record one signal count and one criterion "
+            f"for every probe (found {sorted(map(str, counts))} signals and "
+            f"{sorted(map(str, criteria))} criteria), so no single rate can be quoted for it. "
+            f"Delete it and run `python breakpoints.py` again.",
+            "",
+        ]
+    signals = counts.pop()
+    criterion = criteria.pop()
+    records = []
+    for axis in AXES.values():
+        try:
+            records.append(locate(axis, signals, criterion, cache, probe=cache_only))
+        except KeyError as error:
+            # a half-measured cache must not take the report down with it
+            records.append(
+                {
+                    "axis": axis.name,
+                    "question": axis.question,
+                    "error": f"the probes for this axis are incomplete: {error}",
+                    "trace": [],
+                    "seconds": 0.0,
+                }
+            )
+    return report(records, signals, criterion, 0.0)
+
+
+def write_into(path: Path, section: list) -> None:
+    """Replace this report's section in `path`, keeping every sweep above it untouched."""
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    above = text.split(SECTION_HEADING)[0].rstrip()
+    body = "\n".join(section)
+    path.write_text((above + "\n\n" if above else "") + body + "\n", encoding="utf-8")
 
 
 def main(argv=None) -> int:
@@ -385,21 +492,18 @@ def main(argv=None) -> int:
         help="fraction of signals that must recover for a value to count as still working",
     )
     parser.add_argument("--axes", nargs="*", default=None, help=f"axes to probe: {sorted(AXES)}")
-    parser.add_argument("--out", default="BREAKPOINTS.md", help="markdown report to write")
     parser.add_argument("--cache", default=str(CACHE_PATH), help="probe cache, so a rerun is cheap")
+    parser.add_argument("--report", default=str(REPORT_PATH), help="report whose section is replaced")
     arguments = parser.parse_args(argv)
 
     selected = {name: AXES[name] for name in (arguments.axes or AXES)}
     cache_path = Path(arguments.cache)
-    cache = {}
-    if cache_path.exists():
-        try:
-            cache = json.loads(cache_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as error:
-            print(f"cache {cache_path} is not usable ({error}); starting from scratch", flush=True)
-            cache = {}
-    if any(entry.get("signals") != arguments.signals for entry in cache.values()):
-        # a different signal count is a different experiment: never mix the two
+    cache = load_cache(cache_path)
+    if any(
+        entry.get("signals") != arguments.signals or entry.get("criterion") != arguments.criterion
+        for entry in cache.values()
+    ):
+        # a different signal count or criterion is a different experiment: never mix the two
         cache = {}
 
     started = time.perf_counter()
@@ -407,14 +511,13 @@ def main(argv=None) -> int:
     for name, axis in selected.items():
         print(f"\n## {name}: {axis.question}", flush=True)
         record = locate(axis, arguments.signals, arguments.criterion, cache)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
+        save_cache(cache, cache_path)
         if record["error"]:
             print(f"  {record['error']}", flush=True)
         else:
-            passing, breaking = record["located"]
             for value, passes, _ in sorted(record["trace"]):
                 print(f"  {value:>8g} {axis.unit:<12} {passes:>3}/{arguments.signals}", flush=True)
+            passing, breaking = record["located"]
             print(
                 f"  edge between {passing:g} and {breaking:g} {axis.unit} ({record['seconds']:.0f} s)",
                 flush=True,
@@ -422,11 +525,19 @@ def main(argv=None) -> int:
         records.append(record)
 
     total = time.perf_counter() - started
-    lines = report(records, arguments.signals, arguments.criterion, total)
-    Path(arguments.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\n-> {arguments.out}")
-    print(json.dumps({"axes": len(records), "recordings": sum(
-        len(r["trace"]) + 2 for r in records) * arguments.signals, "seconds": round(total)}))
+    section = report(records, arguments.signals, arguments.criterion, total)
+    report_path = Path(arguments.report)
+    write_into(report_path, section)
+    print(f"\n-> {report_path} (## Break points section)")
+    print(
+        json.dumps(
+            {
+                "axes": len(records),
+                "recordings": sum(len(record["trace"]) + 2 for record in records) * arguments.signals,
+                "seconds": round(total),
+            }
+        )
+    )
     return 0
 
 

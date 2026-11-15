@@ -8,10 +8,10 @@ Nothing here reads `gnss_observation.nc` or `gnss_observation2.nc`: these are fr
 
 ## Headline
 
-- **Sensitivity.** Every run passed down to **47 dB-Hz** per PRN, and below that the failures are partial. This is the lowest value that passed all its seeds, not a rate: two seeds can only say 2 of 2. `python breakpoints.py` measures the rate over 100 independent signals per point and finds the 95% edge higher than this - see `BREAKPOINTS.md`. 12 PRNs at 55 dB-Hz is the assignment's case and it passes with margin.
+- **Sensitivity.** Every run passed down to **47 dB-Hz** per PRN, and below that the failures are partial. This is the lowest value that passed all its seeds, not a rate: two seeds can only say 2 of 2. `python breakpoints.py` measures the rate over 100 independent signals per point and finds the 95% edge higher than this - see the Break points section at the end of this report. 12 PRNs at 55 dB-Hz is the assignment's case and it passes with margin.
 - **How many chips are flipped.** Every count up to **160** recovers exactly. From 400 up, detection is what fails: 4 of 12 PRNs found at 400 chips, 0 of 12 at 500, because a code modified on 2K of its chips keeps (1023 - 2K)/1023 of the nominal correlation: 223/1023 at 400 and 23/1023 at 500.
 - **Doppler.** None of the three fears holds. All 12 PRNs at 0 Hz, all within +-2 Hz and all within +-20 Hz recover exactly (zero 2/2, within-2hz 2/2, within-20hz 2/2, random-4000hz 2/2, fixed-5150hz 2/2, fixed-5500hz 2/2, fixed-5600hz 1/2, fixed-5800hz 0/2, fixed-20000hz 0/2): different spreading codes stay orthogonal even at identical Doppler, and cancellation removes what the codes do not. Large Doppler is a search-span question, not an algorithm one: the span is +-5175 Hz from the satellite's line-of-sight speed plus a 200 km/h receiver, the coarse grid reaches +-5000 Hz and the fine search adds +-500 Hz, so signals at +5500 Hz are still found and at +5800 Hz are not. Raise --max-speed-km-h if the receiver assumption is wrong; do not expect the search to guess outside the span it was given.
-- **Large Doppler with the search widened to cover it.** Yes, it works: wide-6khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-6khz-wide: 2/2 (span +-6300 Hz, 0.5 s); wide-10khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-10khz-wide: 2/2 (span +-10500 Hz, 0.5 s); wide-15khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-15khz-wide: 2/2 (span +-15750 Hz, 0.5 s); wide-20khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-20khz-wide: 2/2 (span +-21000 Hz, 0.6 s); wide-30khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-30khz-wide: 2/2 (span +-31500 Hz, 0.6 s). Paying for the span costs search time and a little sensitivity, because the detection threshold grows with the number of cells searched (2**-t per cell, so four times the span costs about one more unit of peak-to-floor ratio); it does not cost correctness. Without widening, the same signals are invisible.
+- **Large Doppler with the search widened to cover it.** Yes, it works: wide-6khz-default: 0/2 (span +-5175 Hz, 0.3 s); wide-6khz-wide: 2/2 (span +-6300 Hz, 0.6 s); wide-10khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-10khz-wide: 2/2 (span +-10500 Hz, 0.5 s); wide-15khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-15khz-wide: 2/2 (span +-15750 Hz, 0.6 s); wide-20khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-20khz-wide: 2/2 (span +-21000 Hz, 0.6 s); wide-30khz-default: 0/2 (span +-5175 Hz, 0.2 s); wide-30khz-wide: 2/2 (span +-31500 Hz, 0.6 s). Paying for the span costs search time and a little sensitivity, because the detection threshold grows with the number of cells searched (2**-t per cell, so four times the span costs about one more unit of peak-to-floor ratio); it does not cost correctness. Without widening, the same signals are invisible.
 - **Dense modifications: a soft edge, not a threshold.** Passes per flip count over 6 seeds: {236: '0/6', 240: '1/6', 244: '0/6', 248: '0/6', 252: '0/6', 256: '0/6', 260: '0/6', 264: '0/6'}. The pattern is not monotonic, and that is the finding: which draw wins depends on where the random base lands, not on K alone, so there is no single flip count at which the method stops. What collapses is the shift margin - 0.030 to 0.030 when the shift is right, 0.000 to 0.121 when it is wrong - so the two populations overlap and the outcome turns on which alias fits. The wrong shifts are 343 and 684, about 1023/3 and 2*1023/3, where PRN rolls coincide. The assignment's 15 flips sits nowhere near this.
 - **Number of PRNs.** At 52 dB-Hz per PRN: exact at [4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 30], partial at [40, 60], never recovered at [1, 2, 3, 80, 120, 160, 210] (tested [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 16, 20, 30, 40, 60, 80, 120, 160, 210]). One PRN cannot define a shift at all - there is nothing to relate it to - and the flip decisions need the sqrt(N) combining gain: 12 PRNs buy 10.8 dB where 4 buy 6 dB.
 - **Data bits changing at random per PRN.** Over 16 runs, 76 of 192 PRN-records carried a transition inside the record, drawn with probability = record length / 20 ms, and the sign-pattern detector located 188 of them exactly. Runs that did not recover every chip: ['bitprob-2ms-52db-seed2', 'bitprob-4ms-52db-seed2']. At 2 ms the record holds two code periods, which is too few to fit a phase slope *and* locate a step, so a transition there costs the Doppler estimate (371 Hz error in one run) even though the chips survive.
@@ -29,19 +29,19 @@ Backend: `gpu (NVIDIA GeForce RTX 4050 Laptop GPU, CuPy 14.2.0)`. `GNSS_BACKEND=
 
 | sweep | runs | mean seconds | total seconds |
 | --- | --- | --- | --- |
-| cn0 | 20 | 0.51 | 10.2 |
-| flip_count | 36 | 0.49 | 17.5 |
-| dense_flips | 48 | 0.51 | 24.3 |
-| doppler | 18 | 0.43 | 7.8 |
-| wide_doppler | 20 | 0.36 | 7.3 |
-| slope | 12 | 0.50 | 6.0 |
-| prns | 40 | 2.02 | 80.9 |
-| bit_probability | 16 | 0.61 | 9.7 |
-| duration | 8 | 0.56 | 4.5 |
-| fractional_delay | 8 | 0.50 | 4.0 |
-| data_bit | 8 | 0.52 | 4.2 |
-| structure | 6 | 0.50 | 3.0 |
-| **all** | 240 | 0.77 | 184 |
+| cn0 | 20 | 0.56 | 11.3 |
+| flip_count | 36 | 0.56 | 20.0 |
+| dense_flips | 48 | 0.59 | 28.1 |
+| doppler | 18 | 0.46 | 8.3 |
+| wide_doppler | 20 | 0.40 | 8.1 |
+| slope | 12 | 0.54 | 6.5 |
+| prns | 40 | 2.23 | 89.1 |
+| bit_probability | 16 | 0.66 | 10.5 |
+| duration | 8 | 0.62 | 5.0 |
+| fractional_delay | 8 | 0.56 | 4.5 |
+| data_bit | 8 | 0.55 | 4.4 |
+| structure | 6 | 0.55 | 3.3 |
+| **all** | 240 | 0.86 | 206 |
 
 ## cn0
 
@@ -342,4 +342,112 @@ Backend: `gpu (NVIDIA GeForce RTX 4050 Laptop GPU, CuPy 14.2.0)`. `GNSS_BACKEND=
 | independent-15-seed2 | 12/12 | 2.98 Hz | n/a | 0.090 | 15/0 | n/a | n/a | n/a | 1.057 | no-rule |
 | none-0-seed1 | 12/12 | 1.60 Hz | n/a | 0.007 | 0/0 | n/a | n/a | n/a | 0.997 | no-rule |
 | none-0-seed2 | 12/12 | 3.26 Hz | n/a | 0.046 | 0/0 | n/a | n/a | n/a | 1.002 | no-rule |
+
+## Break points, measured over independent signals
+
+Generated with `python breakpoints.py --signals 100`. Each probe runs **100 independent recordings** (one per seed) at one value of one axis and counts how many recover exactly, then the value is bisected until the passing and breaking ends are one resolution apart. The sweeps above use two seeds per point, which can only say 0/2, 1/2 or 2/2; this can say 91 of 100.
+
+A signal counts as recovered when the verdict is `pass`: every PRN found with no false alarm, the shift right and the flip set exactly right. The criterion is **95 of 100** signals. Every probe reuses the same seeds, so adjacent probes differ in the parameter and not in the noise draw.
+
+### Located edges
+
+| axis | question | edge | rate at the edge | 95% interval | next value fails at |
+| --- | --- | --- | --- | --- | --- |
+| cn0 | lowest carrier-to-noise density per PRN that still recovers every chip | 49.375 dB-Hz | 95/100 = 95% | 89% to 98% | 49.2188 dB-Hz |
+| flip_count | largest number of flipped chips per PRN that still recovers exactly | 140 chips | 97/100 = 97% | 92% to 99% | 144 chips |
+| prns_low | fewest PRNs that still recover exactly (below it the combining gain is gone) | 7 PRNs | 99/100 = 99% | 95% to 100% | 6 PRNs |
+| prns_high | most PRNs that still recover exactly (beyond it the noise floor moves) | 32 PRNs | 100/100 = 100% | 96% to 100% | 36 PRNs |
+| doppler | largest Doppler the widened search still recovers (span widens to cover it) | **bracket wrong** | the declared bad end 120000 Hz still reached 100/100; the break is outside the bracket | | |
+| duration | shortest record, in code periods, that still recovers exactly | 5 code periods | 98/100 = 98% | 93% to 99% | 4 code periods |
+
+### cn0
+
+lowest carrier-to-noise density per PRN that still recovers every chip
+
+| value | recovered | rate | 95% interval |
+| --- | --- | --- | --- |
+| 60 dB-Hz (declared good) | 100/100 | 100% | 96% to 100% |
+| 45 dB-Hz | 26/100 | 26% | 18% to 35% |
+| 47.5 dB-Hz | 83/100 | 83% | 74% to 89% |
+| 48.75 dB-Hz | 92/100 | 92% | 85% to 96% |
+| 49.0625 dB-Hz | 92/100 | 92% | 85% to 96% |
+| 49.2188 dB-Hz | 94/100 | 94% | 88% to 97% |
+| 49.375 dB-Hz | 95/100 | 95% | 89% to 98% |
+| 50 dB-Hz | 98/100 | 98% | 93% to 99% |
+| 40 dB-Hz (declared bad) | 0/100 | 0% | 0% to 4% |
+
+**Edge between 49.375 and 49.2188 dB-Hz** (resolution 0.25, criterion 95%). Probes on this axis: 9, 912 s.
+
+### flip_count
+
+largest number of flipped chips per PRN that still recovers exactly
+
+| value | recovered | rate | 95% interval |
+| --- | --- | --- | --- |
+| 15 chips (declared good) | 100/100 | 100% | 96% to 100% |
+| 136 chips | 98/100 | 98% | 93% to 99% |
+| 140 chips | 97/100 | 97% | 92% to 99% |
+| 144 chips | 94/100 | 94% | 88% to 97% |
+| 151 chips | 92/100 | 92% | 85% to 96% |
+| 166 chips | 78/100 | 78% | 69% to 85% |
+| 197 chips | 44/100 | 44% | 35% to 54% |
+| 258 chips | 0/100 | 0% | 0% to 4% |
+| 500 chips (declared bad) | 0/100 | 0% | 0% to 4% |
+
+**Edge between 140 and 144 chips** (resolution 4, criterion 95%). Probes on this axis: 9, 957 s.
+
+### prns_low
+
+fewest PRNs that still recover exactly (below it the combining gain is gone)
+
+| value | recovered | rate | 95% interval |
+| --- | --- | --- | --- |
+| 12 PRNs (declared good) | 100/100 | 100% | 96% to 100% |
+| 6 PRNs | 94/100 | 94% | 88% to 97% |
+| 7 PRNs | 99/100 | 99% | 95% to 100% |
+| 8 PRNs | 98/100 | 98% | 93% to 99% |
+| 9 PRNs | 100/100 | 100% | 96% to 100% |
+| 1 PRNs (declared bad) | 0/100 | 0% | 0% to 4% |
+
+**Edge between 7 and 6 PRNs** (resolution 1, criterion 95%). Probes on this axis: 6, 425 s.
+
+### prns_high
+
+most PRNs that still recover exactly (beyond it the noise floor moves)
+
+| value | recovered | rate | 95% interval |
+| --- | --- | --- | --- |
+| 12 PRNs (declared good) | 100/100 | 100% | 96% to 100% |
+| 26 PRNs | 100/100 | 100% | 96% to 100% |
+| 32 PRNs | 100/100 | 100% | 96% to 100% |
+| 36 PRNs | 0/100 | 0% | 0% to 4% |
+| 39 PRNs | 34/100 | 34% | 25% to 44% |
+| 66 PRNs | 39/100 | 39% | 30% to 49% |
+| 120 PRNs (declared bad) | 21/100 | 21% | 14% to 30% |
+
+**Edge between 32 and 36 PRNs** (resolution 4, criterion 95%). Probes on this axis: 7, 2786 s.
+
+### doppler
+
+largest Doppler the widened search still recovers (span widens to cover it)
+
+**Bracket wrong.** the declared bad end 120000 Hz still reached 100/100; the break is outside the bracket
+
+### duration
+
+shortest record, in code periods, that still recovers exactly
+
+| value | recovered | rate | 95% interval |
+| --- | --- | --- | --- |
+| 8 code periods (declared good) | 100/100 | 100% | 96% to 100% |
+| 4 code periods | 94/100 | 94% | 88% to 97% |
+| 5 code periods | 98/100 | 98% | 93% to 99% |
+| 6 code periods | 100/100 | 100% | 96% to 100% |
+| 1 code periods (declared bad) | 0/100 | 0% | 0% to 4% |
+
+**Edge between 5 and 4 code periods** (resolution 1, criterion 95%). Probes on this axis: 5, 340 s.
+
+### Cost
+
+6 axes, 38 probes, 100 signals per probe: 3800 recordings scored in 94.3 min (1.49 s per recording). This is the measured cost of the probes, including any reused from the cache; this run took 0.0 min of wall clock.
 

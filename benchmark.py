@@ -495,7 +495,8 @@ def summarise(results: dict) -> list:
             f"that the failures are {', '.join(broken)}. This is the lowest value that passed all "
             f"its seeds, not a rate: two seeds can only say 2 of 2. `python breakpoints.py` measures "
             f"the rate over 100 independent signals per point and finds the 95% edge higher than "
-            f"this - see `BREAKPOINTS.md`. 12 PRNs at 55 dB-Hz is the assignment's case and it "
+            f"this - see the Break points section at the end of this report. 12 PRNs at 55 dB-Hz is "
+            f"the assignment's case and it "
             f"passes with margin."
         )
 
@@ -771,6 +772,12 @@ def main(argv=None) -> int:
         sections.append(HEADER)
         sections.extend(table_row(row) for row in rows)
         sections.append("")
+    # The break-point half of this report: 100 signals per point instead of two seeds, measured by
+    # `breakpoints.py` and rendered here from its cache. Imported late because that module needs
+    # `Scenario` and `score` from this one, and because a sweep-only run should not pay for it.
+    from breakpoints import cached_section
+
+    sections.extend(cached_section())
     Path(arguments.out).write_text("\n".join(sections) + "\n", encoding="utf-8")
     print(f"\n-> {arguments.out}")
     print(json.dumps({"runs": sum(len(rows) for rows in results.values())}))

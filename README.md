@@ -127,7 +127,7 @@ The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Belo
 those edges into a rate, `python breakpoints.py` runs **100 independent recordings per probe** and
 bisects each axis for the value where exact recovery stops, quoting the binomial interval of every
 probe (100 signals resolve a 95% rate to about ±4 points). It also checks its own bracket before
-trusting a bisection. Full report: [`BREAKPOINTS.md`](BREAKPOINTS.md).
+trusting a bisection. It is the `## Break points` section at the end of [`BENCHMARK.md`](BENCHMARK.md).
 
 ## Third-party code, stated plainly
 
