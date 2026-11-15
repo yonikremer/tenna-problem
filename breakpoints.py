@@ -65,7 +65,7 @@ SCATTER_PALETTES = {
         "grid": "#f2f4f7",
         "axis": "#d0d7de",
         "edge": "#0969da",
-        "dots": {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"},
+        "dots": {"#": "#1a7f37", "o": "#9a6700", ".": "#d1242f"},
         "bands": (("#e4f5f2", "#0f766e"), ("#efe9fd", "#6d28d9")),
     },
     "dark": {
