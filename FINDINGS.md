@@ -95,16 +95,16 @@ the fifteen chips.
 
 ### What a pass looks like
 
-| model of the signal | leftover power | correlation with the recording | per-PRN correlation |
-| --- | --- | --- | --- |
-| 12 satellites, **nominal** codes | 5.39e-2 | 0.985823 | 0.758 |
-| 12 satellites, **recovered 15-flip codes** | **7.24e-4** | **0.999823** | **0.996** |
+| model of the signal | leftover power | correlation with the recording |
+| --- | --- | --- |
+| 12 satellites, **nominal** codes | 5.41e-2 | 0.985761 |
+| 12 satellites, **recovered 15-flip codes** | **9.32e-4** | **0.999768** |
 
-- The recovered codes reproduce the file to **0.04% of its power**, correlation **0.9998**.
-- The change from nominal is **+0.0140** in correlation and a **75-fold** drop in leftover power
-  (−18.7 dB).
-- Refining the nominal model's own parameters does not close that gap (0.985761 → 0.985823), so the
-  improvement is not extra fitting.
+- The recovered codes reproduce the file to **0.05% of its power**, correlation **0.9998**.
+- The change from nominal is **+0.0140** in correlation and a **58-fold** drop in leftover power
+  (−17.6 dB).
+- Refining the nominal model's own delay per PRN does not close that gap: it stays at 5.41e-2, so
+  the improvement is not extra fitting.
 - The two model signals differ only on the 180 flipped chips and correlate with each other at
   **0.97048**, against the analytic `(1023 - 30)/1023 = 0.970674`. The size of the effect matches the
   claim it is testing — that is what makes this a check rather than a fit.

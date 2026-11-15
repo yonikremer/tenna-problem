@@ -88,7 +88,7 @@ search, the rule, and the evidence. It writes six files next to each recording, 
 
 Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 when a recording
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
-hidden assumption about which PRNs are in use; it costs about 11 s per recording.
+hidden assumption about which PRNs are in use.
 
 `codes` in `data/<name>_solution.json` is one row per PRN: `prn`, `transmitted_code`, `original_code`
 and `modified_indexes`. Both codes are the full 1023 chips. `modified_indexes` is exactly the set of
@@ -108,7 +108,7 @@ the signal with no noise at all. That turns the answer into something testable t
 .venv/Scripts/python.exe -m analysis.seed_recovery
 ```
 
-The recovered codes then reproduce the recording at correlation **0.9998** and leave **7.2e-4** of its
+The recovered codes then reproduce the recording at correlation **0.9998** and leave **9.3e-4** of its
 power, against **0.9858** and **5.4e-2** for the nominal codes — same Doppler, offset and amplitude
 freedom for both. Recording 2 declares no seed, so this check applies to recording 1 only. Procedure
 and limits: `FINDINGS.md`, "Double-checking the answer against the file's own seed".

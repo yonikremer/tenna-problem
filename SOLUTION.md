@@ -371,7 +371,7 @@ cache in `data/breakpoints/`.
 | the recovered codes explain the recording | residual falls to the noise variance; per-PRN gain reaches the theoretical ceiling |
 | the rule is Fibonacci, not a curve fit | the 15 recovered positions equal the cumulative-Fibonacci set exactly, verified in code |
 | the count is not assumed | chosen by held-out correlation; recording 2 returns 14 and names `987` as the one rule position it cannot confirm |
-| the answer reproduces the file | recording 1's declared seed gives its noise exactly; subtracting it, the recovered codes leave 7.2e-4 of the received power against 5.4e-2 for nominal codes, correlation 0.9998 against 0.9858 |
+| the answer reproduces the file | recording 1's declared seed gives its noise exactly; subtracting it, the recovered codes leave 9.3e-4 of the received power against 5.4e-2 for nominal codes, correlation 0.9998 against 0.9858 |
 
 Where the evidence is weak, the output says so: a low PRN count raises a warning, an unsupported rule
 position is listed rather than emitted, and a weak held-out gain returns a pattern of length zero.

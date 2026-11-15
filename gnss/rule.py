@@ -34,7 +34,7 @@ FLIP_COUNT = 15
 # negation than to itself, which is the same ambiguity as a navigation data bit's sign and cannot be
 # separated from it.
 MAX_FLIP_COUNT = CODE_LENGTH // 2
-CANDIDATE_COUNTS = tuple(range(0, MAX_FLIP_COUNT + 1))
+CANDIDATE_COUNTS = tuple(range(MAX_FLIP_COUNT + 1))
 
 # The fourteen increments of the inferred generator, in chips.
 FIBONACCI = (1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377)
@@ -241,7 +241,7 @@ def count_scores(vectors: dict, slope: int, candidates=CANDIDATE_COUNTS) -> dict
         flipped_contribution = np.cumsum(2.0 * own[(order - shift) % CODE_LENGTH])
         folds.append((nominal, flipped_contribution))
     if not folds:
-        return {count: 0.0 for count in candidates}
+        return dict.fromkeys(candidates, 0.0)
 
     scores = {}
     for count in candidates:
