@@ -630,7 +630,7 @@ def _svg_legend(
         [
             ("dot", colours["#"], f"{at_criterion}-{signals} of {signals} fully recovered"),
             ("dot", colours["o"], f"{half}-{at_criterion - 1} of {signals} fully recovered"),
-            ("ring", colours["."], f"0-{half - 1} of {signals} fully recovered"),
+            ("dot", colours["."], f"0-{half - 1} of {signals} fully recovered"),
         ],
         [
             ("rule", annotation, "our record length"),
@@ -705,8 +705,9 @@ def _scatter_svg(
       probes are closer together than a marker is wide, so a ring would swallow three or four of
       them, including ones of another class.
     - Every probe is drawn the same way, including the two ends of the bracket: each is 100 real
-      recordings, so the only thing that differs is its pass rate. The lowest class is an open
-      marker, so the three classes differ in shape as well as colour.
+      recordings, so the only thing that differs is its pass rate, carried by colour. Each dot has
+      a halo in the sheet's own background colour, because neighbouring probes are closer together
+      than a marker is wide and would otherwise over-paint each other.
     """
     low, high = 38.0, 72.0
     width, height = 900, 544
@@ -829,24 +830,27 @@ def _scatter_svg(
             f'stroke-dasharray="7 5" stroke-linecap="round"/>'
         )
 
+    background = colours_theme["bg"]
     for index, record in enumerate(records):
         if record["error"]:
             continue
         x = x_of(periods[index])
+        located = record["located"][0] if record.get("located") else None
         probes = _probes_of(record)
-        for cn0, passes in probes:
+        # Probes converge on a tenth of a decibel, which is a fraction of a marker: without a
+        # background halo a column near the edge is one smear of over-painted dots. The nearest
+        # probe to the edge is painted last, so the mark the column is about stays on top.
+        order = sorted(
+            probes,
+            key=lambda item: -abs(item[0] - located) if located is not None else 0.0,
+        )
+        for cn0, passes in order:
             y = y_of(cn0)
             glyph = _glyph(passes, signals, criterion)
-            if glyph == ".":  # open marker, so the classes differ in shape too
-                parts.append(
-                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="none" '
-                    f'stroke="{colours[glyph]}" stroke-width="1.7"/>'
-                )
-            else:
-                parts.append(
-                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{colours[glyph]}" '
-                    f'fill-opacity="0.95"/>'
-                )
+            parts.append(
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{colours[glyph]}" '
+                f'stroke="{background}" stroke-width="1.2"/>'
+            )
         if record.get("located"):
             y = y_of(record["located"][0])
             for offset in (-9.0, 4.0):
