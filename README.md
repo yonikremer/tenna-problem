@@ -14,8 +14,8 @@ Two ways to read the solution, both self-contained:
 - **[The same page as a PDF](solution-workthrough.pdf)**: light theme, 12 pages, for reading
   or printing offline.
 
-The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md), the method step by step in
-[`SOLUTION.md`](SOLUTION.md), and the limits in [`BENCHMARK.md`](BENCHMARK.md).
+The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md) and the limits in
+[`BENCHMARK.md`](BENCHMARK.md).
 
 ## Answer
 
@@ -50,10 +50,8 @@ recording 2. That looks like twelve failures and is one: every PRN's list lacks 
 position, `987` in PRN 1's coordinates and `965` in PRN 12's, because each PRN's list is that base
 shifted by two chips. Compare `rule.closed_form_flips` with `rule.flips` in that file to see it.
 
-Full reasoning and measured evidence: [`FINDINGS.md`](FINDINGS.md). Step-by-step derivation of the
-whole method, with the arithmetic behind every threshold: [`SOLUTION.md`](SOLUTION.md). The same
-walkthrough as a page with live numbers and charts:
-[`solution-workthrough.html`](solution-workthrough.html).
+Full reasoning and measured evidence: [`FINDINGS.md`](FINDINGS.md). The method step by step, with the
+arithmetic behind every threshold and the charts: [`solution-workthrough.html`](solution-workthrough.html).
 
 ## Setup
 
@@ -117,7 +115,7 @@ and limits: `FINDINGS.md`, "Double-checking the answer against the file's own se
 
 | path | role |
 | --- | --- |
-| `SOLUTION.md` | the whole method, step by step, with the arithmetic and the measured numbers |
+| `solution-workthrough.html` | the walkthrough, step by step, with the arithmetic and the measured numbers |
 | `solve.py` | the whole solution in one command: acquisition → cancellation → chip readout → shift → rule → evidence → files |
 | `data/` | the recordings, plus every artifact made from them (`data/tests/`, `data/benchmark/` are generated) |
 | `gnss/lattice.py` | sampling grid derived from the recording's own metadata |
