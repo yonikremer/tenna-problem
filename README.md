@@ -15,7 +15,26 @@ Two ways to read the solution, both self-contained:
   or printing offline.
 
 The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md) and the limits in
-[`BENCHMARK.md`](BENCHMARK.md).
+[`BENCHMARK.md`](BENCHMARK.md). The walkthrough is the answer to "how did you get there": every step
+from the raw samples to the rule, with the arithmetic that sets each threshold, and every number in it
+is one you can regenerate with the commands in this file.
+
+## The two recordings, and what each was for
+
+The two files are the same signal model at different strength, which is what makes them useful as a
+development set and a check:
+
+- **`data/gnss_observation.nc` is the development reference.** 12 PRNs at 54.1–54.9 dB-Hz, and it
+declares a `random_seed`. Rebuilding that noise and subtracting it turns the file into a noise-free
+recording, so the answer can be checked to the last digit (correlation 0.9998, 0.05% leftover power)
+rather than argued about. This is the file the thresholds were derived and confirmed on.
+- **`data/gnss_observation2.nc` is the robustness check.** Same 12 PRNs, the same rule and the same
+slope, but 8 dB weaker on average (44.1–48.0 dB-Hz) and with no seed, so the noise-free check is not
+available and the file has to stand on its own. The chain that runs on it is unchanged — nothing in
+`gnss/` knows either filename beyond a command-line default — and it recovers 14 of the 15 positions,
+missing `987`, which is what the noise-floor measurements say a file this weak should do (7.5% of
+1000 known-truth trials drop exactly one chip). Neither file redefines the rule: the same fifteen
+positions, shifted two chips per PRN, explain both.
 
 ## Answer
 
@@ -189,6 +208,27 @@ section of the same report, or the figure in two page themes,
 [`assets/cn0_vs_duration_light.svg`](assets/cn0_vs_duration_light.svg) and
 [`assets/cn0_vs_duration_dark.svg`](assets/cn0_vs_duration_dark.svg).
 
+## How this was built
+
+The assignment allows AI-assisted development tools, and this used one: an AI coding assistant wrote
+most of the code and most of the prose in this repository, including the walkthrough.
+
+What that does and does not buy the reader:
+
+- **Every number is checkable.** Each figure and table in these documents comes from a command in this
+  repo — `solve.py`, `benchmark.py`, `breakpoints.py`, or a script in `analysis/`. Nothing is quoted
+  from a summary; if a claim here is wrong, re-running the command says so.
+- **The reasoning is arithmetic, not assertion.** The walkthrough derives each threshold — the 36.1 dB
+  processing gain, the 500 Hz Doppler step, the ±5175 Hz span, the detection threshold, the 10.8 dB
+  combining gain — from constants you can check by hand.
+- **The mistakes are in the record.** The commit history is the working log, including the rounds that
+  exist only because a claim did not survive checking: a chip-labelling bug, a Doppler fit that was
+  95 Hz wrong while claiming ±1.4 Hz, figures redrawn after review, and two numbers corrected because
+  the command they cited no longer printed them. `FINDINGS.md`, "Bugs found and fixed", lists them.
+
+I directed the work, reviewed each result and can defend it line by line; the assistant did the typing,
+ran the experiments and produced the numbers.
+
 ## Third-party code, stated plainly
 
 The C/A spreading codes come from someone else's code, not mine.
@@ -204,4 +244,4 @@ The C/A spreading codes come from someone else's code, not mine.
   verification — is written for this task. One exception is stated where it lives:
   `analysis/acquire_nc.py` keeps Peter Monta's FFT acquisition kernel shape as an independent
   cross-check of `gnss/acquisition.py`, and its docstring says so.
-- **Mine:** all other code in this repository.
+- **Written for this task:** all other code in this repository.

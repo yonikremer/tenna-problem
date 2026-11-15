@@ -1,13 +1,12 @@
-/* LaTeX rendering for lessons and reference sheets.
+/* LaTeX rendering for the walkthrough page.
 
    Requires in <head>:
-     <link rel="stylesheet" href="../assets/course.css">
-     <link rel="stylesheet" href="../assets/katex/katex.min.css">
+     <link rel="stylesheet" href="assets/katex/katex.min.css">
    and at end of <body>:
-     <script src="../assets/math.js"></script>
+     <script src="assets/math.js"></script>
 
    Delimiters: $$...$$ display, $...$ inline. KaTeX is vendored in
-   ./katex/ so lessons render offline and print with real math fonts. */
+   ./katex/ so the page renders offline and prints with real math fonts. */
 
 (function () {
   var base = document.currentScript.src.replace(/[^/]*$/, "katex/");
