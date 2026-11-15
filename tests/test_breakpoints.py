@@ -194,8 +194,19 @@ def test_the_duration_section_reports_the_gain_per_doubling(monkeypatch, tmp_pat
     text = " ".join(section)
     assert section[0] == breakpoints.SECTION_DURATION_HEADING
     assert "4.00 dB per doubling" in text
-    assert figure.as_posix() in text
-    assert figure.exists() and figure.read_text(encoding="utf-8").startswith("<svg")
+    # one file per page theme, both named after the given figure path
+    light = figure.with_name(f"{figure.name}_light.svg")
+    dark = figure.with_name(f"{figure.name}_dark.svg")
+    assert light.as_posix() in text and dark.as_posix() in text
+    for drawn in (light, dark):
+        assert drawn.exists(), drawn
+        body = drawn.read_text(encoding="utf-8")
+        assert body.startswith("<svg")
+    # the two files must differ only in colour, i.e. both carry the same marks
+    assert light.read_text(encoding="utf-8").count("<circle") == dark.read_text(
+        encoding="utf-8"
+    ).count("<circle")
+    assert light.read_text(encoding="utf-8") != dark.read_text(encoding="utf-8")
 
 
 def test_each_probe_is_paid_for_once(monkeypatch):

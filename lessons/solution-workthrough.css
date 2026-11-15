@@ -20,31 +20,6 @@ html[data-theme="dark"] {
   --link: #9ec0dc;
 }
 
-/* figure palette: the data colours need a lighter variant on a dark page */
-:root, html[data-theme="light"] {
-  --fig-green: #1a7f37;
-  --fig-amber: #bf8700;
-  --fig-blue: #0969da;
-  --fig-red: #d1242f;
-  --fig-teal: #0f766e;
-  --fig-teal-band: #e4f5f2;
-  --fig-purple: #6d28d9;
-  --fig-purple-band: #efe9fd;
-  --fig-strong: #414a53;
-}
-
-html[data-theme="dark"] {
-  --fig-green: #4ac26b;
-  --fig-amber: #d4a72c;
-  --fig-blue: #539bf5;
-  --fig-red: #ff7b72;
-  --fig-teal: #34b3a0;
-  --fig-teal-band: #16332e;
-  --fig-purple: #a371f7;
-  --fig-purple-band: #262038;
-  --fig-strong: #c2c8d0;
-}
-
 * { box-sizing: border-box; }
 
 html { font-size: 16px; }
@@ -303,12 +278,19 @@ figure.chart {
   max-width: 900px;
 }
 
-figure.chart svg {
+figure.chart img {
   display: block;
   width: 100%;
   height: auto;
   border: 1px solid var(--line);
 }
+
+/* one file per theme, drawn with its own background by breakpoints.py */
+figure.chart .chart-dark { display: none; }
+
+html[data-theme="dark"] figure.chart .chart-light { display: none; }
+
+html[data-theme="dark"] figure.chart .chart-dark { display: block; }
 
 figure.chart figcaption {
   margin: 8px 0 0;

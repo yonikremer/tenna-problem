@@ -508,7 +508,7 @@ From 2 to 32 code periods the floor moves 13.44 dB, which is **3.36 dB per doubl
 `#` at least 95 of 100 recover, `o` half to that, `.` below half, blank not probed.
 `*` the supplied recordings: 8 ms, 8 code periods.
 
-The same scatter as a picture: [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg). The two horizontal bands on it are the C/N0 each supplied recording spans over its twelve PRNs (recording 1 54.1-54.9, recording 2 44.1-48 dB-Hz), measured with `python -m gnss.acquisition`.
+The same scatter as a picture, drawn once per page theme: [light](assets/cn0_vs_duration_light.svg), [dark](assets/cn0_vs_duration_dark.svg). The two horizontal bands on it are the C/N0 each supplied recording spans over its twelve PRNs (recording 1 54.1-54.9, recording 2 44.1-48 dB-Hz), measured with `python -m gnss.acquisition`.
 
 ### Cost
 

@@ -50,7 +50,36 @@ from benchmark import Scenario, score, synthesise
 WORK_DIR = Path("data/breakpoints")
 CACHE_PATH = Path("data/breakpoints/probes.json")
 DURATION_CACHE = Path("data/breakpoints/duration_cn0.json")
-DURATION_FIGURE = Path("assets/cn0_vs_duration.svg")
+# The figure is written once per theme, so the SVG carries its own background instead of relying on
+# the page behind it: assets/cn0_vs_duration_light.svg and _dark.svg.
+DURATION_FIGURE = Path("assets/cn0_vs_duration")
+
+# One palette per theme. The data colours (green, amber, red) are darkened for white and lightened for
+# the dark sheet, so both sheets clear the same contrast bar against their own background.
+SCATTER_PALETTES = {
+    "light": {
+        "bg": "#ffffff",
+        "ink": "#1f2328",
+        "muted": "#57606a",
+        "annotation": "#414a53",
+        "grid": "#f2f4f7",
+        "axis": "#d0d7de",
+        "edge": "#0969da",
+        "dots": {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"},
+        "bands": (("#e4f5f2", "#0f766e"), ("#efe9fd", "#6d28d9")),
+    },
+    "dark": {
+        "bg": "#16181c",
+        "ink": "#e6e8eb",
+        "muted": "#a3aab2",
+        "annotation": "#c2c8d0",
+        "grid": "#2a2f35",
+        "axis": "#3a4048",
+        "edge": "#539bf5",
+        "dots": {"#": "#4ac26b", "o": "#d4a72c", ".": "#ff7b72"},
+        "bands": (("#16332e", "#34b3a0"), ("#262038", "#a371f7")),
+    },
+}
 REPORT_PATH = Path("BENCHMARK.md")
 
 # The record lengths the duration experiment compares: each doubling is 1 ms of signal, and about
@@ -625,7 +654,9 @@ def _svg_legend(
             x += 26 + 6.9 * len(label)
 
 
-def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -> str:
+def _scatter_svg(
+    records: list, periods: list, signals: int, criterion: float, palette: dict | None = None
+) -> str:
     """The same scatter as an SVG, so it can be looked at rather than read.
 
     Hand-written, because the figure has to be produced by an environment that has nothing but
@@ -641,10 +672,11 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
     left, right, top, bottom = 84, 28, 112, 104
     plot_width = width - left - right
     plot_height = height - top - bottom
-    edge_colour = "#0969da"
-    annotation = "#414a53"
-    grid_colour = "#f2f4f7"
-    ink, muted = "#1f2328", "#57606a"
+    colours_theme = palette or SCATTER_PALETTES["light"]
+    edge_colour = colours_theme["edge"]
+    annotation = colours_theme["annotation"]
+    grid_colour = colours_theme["grid"]
+    ink, muted = colours_theme["ink"], colours_theme["muted"]
 
     spans = np.log2(periods)
     span = float(spans.max() - spans.min())
@@ -662,7 +694,7 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" font-family="system-ui, -apple-system, Segoe UI, '
         f'sans-serif">',
-        f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
+        f'<rect width="{width}" height="{height}" fill="{colours_theme["bg"]}"/>',
         f'<text x="28" y="36" font-size="17" font-weight="600" fill="{ink}">'
         f"Longer records read weaker signals</text>",
         f'<text x="28" y="58" font-size="13" fill="{muted}">'
@@ -674,10 +706,7 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
     # The two supplied recordings, as horizontal bands over the whole width: their own C/N0 span.
     # Drawn first so they are washes behind the measurements, not shapes competing with them. Explicit
     # light fills rather than fill-opacity, because not every SVG rasteriser honours opacity on a rect.
-    observation_colours = (
-        ("#e4f5f2", "#0f766e"),
-        ("#efe9fd", "#6d28d9"),
-    )
+    observation_colours = colours_theme["bands"]
     for index, (label, observation_low, observation_high) in enumerate(OBSERVATIONS):
         tint, ink_colour = observation_colours[index % len(observation_colours)]
         y_top, y_bottom = y_of(observation_high), y_of(observation_low)
@@ -718,8 +747,9 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         )
     parts += [
         f'<line x1="{left}" y1="{bottom_of_plot}" x2="{left + plot_width}" y2="{bottom_of_plot}" '
-        f'stroke="#d0d7de"/>',
-        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom_of_plot}" stroke="#d0d7de"/>',
+        f'stroke="{colours_theme["axis"]}"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom_of_plot}" '
+        f'stroke="{colours_theme["axis"]}"/>',
         f'<text x="{left + plot_width / 2:.0f}" y="{bottom_of_plot + 44}" text-anchor="middle" '
         f'font-size="12" fill="{muted}">record length in code periods (log scale) &#183; '
         f'1 period = 1 ms</text>',
@@ -739,7 +769,7 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
             f'font-weight="600" fill="{annotation}">our recordings: {ASSIGNMENT_PERIODS} ms</text>'
         )
 
-    colours = {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"}
+    colours = colours_theme["dots"]
     for index, record in enumerate(records):
         if record["error"]:
             continue
@@ -846,11 +876,20 @@ def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_
     )
     try:
         figure.parent.mkdir(parents=True, exist_ok=True)
-        figure.write_text(_scatter_svg(records, periods, signals, criterion), encoding="utf-8")
+        drawn = []
+        for theme, palette in SCATTER_PALETTES.items():
+            path = figure.with_name(f"{figure.name}_{theme}.svg")
+            path.write_text(
+                _scatter_svg(records, periods, signals, criterion, palette), encoding="utf-8"
+            )
+            drawn.append((theme, path))
         bands = ", ".join(f"{label} {low:g}-{high:g}" for label, low, high in OBSERVATIONS)
+        links = ", ".join(
+            f"[{theme}]({path.as_posix()})" for theme, path in drawn
+        )
         lines.extend(
             [
-                f"The same scatter as a picture: [`{figure.as_posix()}`]({figure.as_posix()}). The "
+                f"The same scatter as a picture, drawn once per page theme: {links}. The "
                 f"two horizontal bands on it are the C/N0 each supplied recording spans over its "
                 f"twelve PRNs ({bands} dB-Hz), measured with `python -m gnss.acquisition`.",
                 "",

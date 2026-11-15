@@ -163,7 +163,9 @@ trusting a bisection. It is the `## Break points` section at the end of [`BENCHM
 the lowest C/N0 that still recovers all 15 chips at each record length? The floor falls **13.4 dB
 between 2 and 32 code periods - 3.36 dB per doubling** of the record, which is what one more
 coherent chip measurement per period should buy. Scatter and numbers: the `## Duration against C/N0`
-section of the same report, or [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg).
+section of the same report, or the figure in two page themes,
+[`assets/cn0_vs_duration_light.svg`](assets/cn0_vs_duration_light.svg) and
+[`assets/cn0_vs_duration_dark.svg`](assets/cn0_vs_duration_dark.svg).
 
 ## Third-party code, stated plainly
 
