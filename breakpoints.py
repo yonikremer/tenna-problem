@@ -637,7 +637,7 @@ def _svg_legend(
             ("rule", annotation, "our record length"),
             ("dash", edge_colour, "located edge"),
             ("bracket", edge_colour, "edge marker"),
-            ("bound", muted, "search bound, not a measurement"),
+            ("bound", muted, "bound probe (open ring)"),
         ],
     ]
     if observations:
@@ -699,14 +699,16 @@ def _scatter_svg(
       probe at either end is drawn whole instead of being cut in half by the frame.
     - Grid lines go down first and the two recording bands over them, so a band never looks like a
       doubled rule where a grid line falls inside it.
-    - The bands start at the 8 ms column, not at the left edge: they are facts about the supplied
-      recordings, which exist at one record length only. A full-width band would be crossed by the
-      edge line at 2 and 4 code periods and imply a comparison that was never made.
+    - The bands run the full width. A band is a C/N0 level, and C/N0 does not depend on how long
+      the record is, so the level holds at every duration on the axis; the vertical rule, not the
+      band's extent, marks the 8 ms of the supplied files. Reading where the dashed edge crosses a
+      band therefore means something real: at 2 code periods that level is under the floor.
     - The located edge is a bracket with a gap, not a circle around the point: near the edge the
       probes are closer together than a marker is wide, so a ring would swallow three or four of
       them, including ones of another class.
-    - The lowest pass class is an open marker and the search bounds are open small circles, so the
-      three classes differ in shape as well as colour, and a bound is not read as a result.
+    - The lowest pass class is an open marker and the bracket ends are larger open rings, so the
+      classes differ in shape as well as colour. A bracket end keeps its own class colour: it is a
+      real probe with a real pass count, only drawn as a ring because it is the end of the search.
     """
     low, high = 38.0, 72.0
     width, height = 900, 544
@@ -765,8 +767,8 @@ def _scatter_svg(
         )
         cn0_tick += 5.0
 
-    band_start = x_of(ASSIGNMENT_PERIODS) if ASSIGNMENT_PERIODS in periods else left
-    band_width = left + plot_width - band_start
+    band_start = left
+    band_width = plot_width
     observation_colours = colours_theme["bands"]
     for index, (_, observation_low, observation_high) in enumerate(OBSERVATIONS):
         tint, band_ink = observation_colours[index % len(observation_colours)]
@@ -836,13 +838,15 @@ def _scatter_svg(
         probes = _probes_of(record)
         for position, (cn0, passes) in enumerate(probes):
             y = y_of(cn0)
-            if position in (0, len(probes) - 1):  # the two bracket ends, not results
+            glyph = _glyph(passes, signals, criterion)
+            if position in (0, len(probes) - 1):
+                # the bracket ends are real probes with real counts, so they keep their class
+                # colour; the open ring is what says "end of the searched range"
                 parts.append(
-                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.0" fill="none" '
-                    f'stroke="{muted}" stroke-width="1.2"/>'
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.0" fill="none" '
+                    f'stroke="{colours[glyph]}" stroke-width="1.7"/>'
                 )
                 continue
-            glyph = _glyph(passes, signals, criterion)
             if glyph == ".":  # open marker, so the classes differ in shape too
                 parts.append(
                     f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="none" '

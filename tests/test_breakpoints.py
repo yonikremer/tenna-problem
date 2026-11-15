@@ -248,17 +248,19 @@ def test_the_figure_draws_one_band_per_observation_and_marks_our_record_length()
         assert f"{label}: {low:g} to {high:g} dB-Hz" in svg
     assert len(band_rects(svg)) == len(breakpoints.OBSERVATIONS), "one rect per observation band"
     assert 'stroke-width="10"' not in svg, "the half-to-reliable bands are gone"
-    # the bands start at our record length, not at the left edge: they say nothing about 2 or 4
-    # code periods, and a full-width band would be crossed by the edge line there
+    # a band is a C/N0 level, which does not depend on record length, so it spans the axis; the
+    # vertical rule is what marks the 8 ms we actually have
     wider = breakpoints._scatter_svg([good, good, good], [2, 8, 32], 100, 0.95)
-    band_xs = {
-        match.group(1)
+    bands = [
+        (match.group(1), match.group(2))
         for match in re.finditer(r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', wider)
         if float(match.group(2)) > 100
-    }
-    tick_x = re.search(r'<text x="([\d.]+)" y="\d+" text-anchor="middle"[^>]*>8</text>', wider)
-    assert tick_x is not None, "the 8 ms tick must be drawn"
-    assert band_xs == {tick_x.group(1)}, f"bands must start at the 8 ms column: {band_xs}"
+    ]
+    assert len({x for x, _ in bands}) == 1, f"bands must share a left edge: {bands}"
+    assert float(bands[0][0]) == 84.0, "bands start at the plot's left edge"
+    assert float(bands[0][1]) > 700.0, "bands run to the right edge"
+    assert re.search(r'<line x1="[\d.]+" y1="112" x2="[\d.]+" y2="[\d.]+" '
+                     r'stroke="#414a53" stroke-width="1.5"/>', wider), "the 8 ms rule must be drawn"
 
 
 def test_the_legend_spells_out_the_counts_instead_of_describing_them():
