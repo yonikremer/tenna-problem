@@ -64,7 +64,7 @@ search, the rule, and the evidence. It writes six files next to each recording, 
 
 Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 when a recording
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
-hidden assumption about which PRNs are in use; it costs about 25 s per recording.
+hidden assumption about which PRNs are in use; it costs about 11 s per recording.
 
 `codes` in `data/<name>_solution.json` is one row per PRN: `prn`, `transmitted_code`, `original_code`
 and `modified_indexes`. Both codes are the full 1023 chips. `modified_indexes` is exactly the set of
@@ -152,6 +152,18 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | no shared rule / no modification | reports **0 chips at 0.000 dB** — no rule invented |
 
 The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Below 6 detected PRNs `solve.py` prints a warning: the combining gain is not there, and the benchmark shows 2-4 PRNs leave 7-13% of the chips missing.
+
+`benchmark.py` uses two noise seeds per grid point, which can only report 0/2, 1/2 or 2/2. To turn
+those edges into a rate, `python breakpoints.py` runs **100 independent recordings per probe** and
+bisects each axis for the value where exact recovery stops, quoting the binomial interval of every
+probe (100 signals resolve a 95% rate to about ±4 points). It also checks its own bracket before
+trusting a bisection. It is the `## Break points` section at the end of [`BENCHMARK.md`](BENCHMARK.md).
+
+`python breakpoints.py --duration` asks the same question in two dimensions instead of one: what is
+the lowest C/N0 that still recovers all 15 chips at each record length? The floor falls **13.4 dB
+between 2 and 32 code periods - 3.36 dB per doubling** of the record, which is what one more
+coherent chip measurement per period should buy. Scatter and numbers: the `## Duration against C/N0`
+section of the same report, or [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg).
 
 ## Third-party code, stated plainly
 

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import alignment, signals
+from . import signals
 from .acquisition import Acquisition
 
 
@@ -76,7 +76,7 @@ def unit_signals(
     length = len(samples)
     units = {}
     for prn, detection in acquisition.detected.items():
-        shift = alignment.aligned_shift(samples, prn, lattice, detection.doppler_hz)
+        shift = acquisition.aligned_shift(prn)
         bit_period = getattr(detection, "bit_change_period", None)
         if nominal:
             units[prn] = signals.unit_signal(

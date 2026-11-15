@@ -10,7 +10,7 @@ which is insensitive to a sign change.
 import numpy as np
 
 from .lattice import Lattice
-from .signals import carrier, spreading_code_replica
+from .signals import carrier, sample_times, spreading_code_replica, tiled_code_replica
 
 SUBSAMPLE_SPAN = 1.0
 SUBSAMPLE_STEP = 0.1
@@ -47,12 +47,15 @@ def code_period_segments(
 ):
     """Cut the carrier- and code-wiped record at code boundaries: (sample count, complex sum)."""
     length = len(samples)
-    code = spreading_code_replica(
-        satellite, length, lattice, None, -shift_samples * lattice.code_phase_increment
-    )
-    times = np.arange(length) / lattice.sample_rate_hz
+    code = tiled_code_replica(satellite, length, lattice, -shift_samples * lattice.code_phase_increment)
+    times = sample_times(length, lattice.sample_rate_hz)
     product = samples * np.exp(-2j * np.pi * doppler_hz * times) * code
+    return segment_totals(product, lattice, shift_samples)
 
+
+def segment_totals(product: np.ndarray, lattice: Lattice, shift_samples: float):
+    """The same cuts, on a record that is already carrier- and code-wiped."""
+    length = len(product)
     edge = shift_samples
     bounds = [0]
     if edge > 0.5:
@@ -89,11 +92,24 @@ def refine_alignment(
     chip) rather than being quoted to three decimals.
     """
     offsets = np.arange(-span, span + 0.5 * step, step)
+    # the carrier is wiped once: only the code replica depends on the shift being scanned
+    wiped = samples * np.exp(
+        -2j * np.pi * doppler_hz * sample_times(len(samples), lattice.sample_rate_hz)
+    )
+    length = len(samples)
     energies = np.array([
         sum(
             abs(total) ** 2
-            for _, total in code_period_segments(
-                samples, satellite, lattice, doppler_hz, shift_samples + offset
+            for _, total in segment_totals(
+                wiped
+                * tiled_code_replica(
+                    satellite,
+                    length,
+                    lattice,
+                    -(shift_samples + offset) * lattice.code_phase_increment,
+                ),
+                lattice,
+                shift_samples + offset,
             )
         )
         for offset in offsets
@@ -171,6 +187,7 @@ __all__ = [
     "refine_alignment",
     "aligned_shift",
     "code_period_segments",
+    "segment_totals",
     "data_bit_sign_pattern",
     "weighted_line",
     "carrier",

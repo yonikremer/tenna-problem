@@ -24,7 +24,7 @@ from pathlib import Path
 import netCDF4
 import numpy as np
 
-from gnss import acquisition, pipeline, signals, verification
+from gnss import acquisition, correlation, pipeline, signals, verification
 from gnss.acquisition import satellite_line_of_sight_speed_m_s
 
 SAMPLE_RATE_HZ = 4_092_000.0
@@ -491,9 +491,13 @@ def summarise(results: dict) -> list:
         limit = min((r["cn0_dbhz"] for r in passes), default=float("nan"))
         broken = sorted({r["verdict"] for r in cn0_rows if r["verdict"] != "pass"})
         lines.append(
-            f"- **Sensitivity.** Exact recovery down to about **{limit:g} dB-Hz** per PRN; below that "
-            f"the failures are {', '.join(broken)}. 12 PRNs at 55 dB-Hz is the assignment's case and "
-            f"it passes with margin."
+            f"- **Sensitivity.** Every run passed down to **{limit:g} dB-Hz** per PRN, and below "
+            f"that the failures are {', '.join(broken)}. This is the lowest value that passed all "
+            f"its seeds, not a rate: two seeds can only say 2 of 2. `python breakpoints.py` measures "
+            f"the rate over 100 independent signals per point and finds the 95% edge higher than "
+            f"this - see the Break points section at the end of this report. 12 PRNs at 55 dB-Hz is "
+            f"the assignment's case and it "
+            f"passes with margin."
         )
 
     count_rows = results.get("flip_count")
@@ -693,6 +697,32 @@ def summarise(results: dict) -> list:
     return lines
 
 
+def time_summary(results: dict, total_seconds: float) -> list:
+    """Wall-clock cost of each sweep: the price of the evidence above, per run and in total."""
+    lines = [
+        "## Time",
+        "",
+        "One row per sweep. `mean` is the cost of scoring one recording, i.e. the whole chain "
+        "(acquisition, cancellation, chip read-out, rule search, verification), averaged over that "
+        "sweep's runs. Synthesis and scoring are excluded from `mean` but not from `total`.",
+        "",
+        f"Backend: `{correlation.describe_backend()}`. `GNSS_BACKEND=cpu` or `GNSS_BACKEND=gpu` "
+        "forces one. The CPU path is the reference the device path is checked against, so the two "
+        "produce the same numbers; only the time changes.",
+        "",
+        "| sweep | runs | mean seconds | total seconds |",
+        "| --- | --- | --- | --- |",
+    ]
+    for name, rows in results.items():
+        seconds = [row["seconds"] for row in rows]
+        lines.append(
+            f"| {name} | {len(rows)} | {sum(seconds) / len(seconds):.2f} | {sum(seconds):.1f} |"
+        )
+    runs = sum(len(rows) for rows in results.values())
+    lines.append(f"| **all** | {runs} | {total_seconds / max(runs, 1):.2f} | {total_seconds:.0f} |")
+    return lines
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Score the recovery chain on generated recordings and report where it breaks."
@@ -702,11 +732,16 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="BENCHMARK.md", help="markdown report to write")
     arguments = parser.parse_args(argv)
 
+    started = time.perf_counter()
     results = run_sweeps(arguments.seeds, set(arguments.only) if arguments.only else None)
     summary = summarise(results)
+    timing = time_summary(results, time.perf_counter() - started)
 
     print("\n## Where it breaks\n")
     for line in summary:
+        print(line)
+    print()
+    for line in timing:
         print(line)
 
     sections = [
@@ -729,12 +764,20 @@ def main(argv=None) -> int:
         "",
         *summary,
         "",
+        *timing,
+        "",
     ]
     for name, rows in results.items():
         sections.append(f"## {name}\n")
         sections.append(HEADER)
         sections.extend(table_row(row) for row in rows)
         sections.append("")
+    # The measured half of this report: 100 signals per point instead of two seeds, measured by
+    # `breakpoints.py` and rendered here from its caches. Imported late because that module needs
+    # `Scenario` and `score` from this one, and because a sweep-only run should not pay for it.
+    from breakpoints import report_sections
+
+    sections.extend(report_sections())
     Path(arguments.out).write_text("\n".join(sections) + "\n", encoding="utf-8")
     print(f"\n-> {arguments.out}")
     print(json.dumps({"runs": sum(len(rows) for rows in results.values())}))

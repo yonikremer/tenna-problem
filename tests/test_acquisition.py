@@ -164,3 +164,56 @@ def test_main_writes_the_acquisition_table(synthetic, acquisition_rows):
         "carrier_to_noise_density_dbhz",
         "detected",
     }
+
+
+def whole_record_power(samples, satellite, lattice, doppler_hz):
+    """Correlation power of the first code period, from one transform over the whole record."""
+    from gnss import signals
+
+    length = len(samples)
+    code = signals.spreading_code_replica(satellite, length, lattice)
+    product = samples * np.conj(signals.carrier(length, lattice, doppler_hz))
+    correlation = np.fft.ifft(np.fft.fft(product) * np.conj(np.fft.fft(code)))
+    return np.abs(correlation) ** 2
+
+
+def test_correlating_per_code_period_matches_one_whole_record_transform(synthetic):
+    """The period-wise shortcut must return the correlation one whole-record transform returns.
+
+    It is only valid while the replica repeats every code period, so the noiseless case is used:
+    there the parabolic sub-sample fit lands exactly on the peak sample, which makes peak and floor
+    directly comparable with the whole-record array.
+    """
+    lattice = synthetic.lattice
+    length = lattice.samples_per_code_period * 8
+    times = np.arange(length) / lattice.sample_rate_hz
+    for satellite, doppler_hz in ((7, 1234.0), (19, -3100.0)):
+        samples = acquisition.spreading_code_replica(satellite, length, lattice) * np.exp(
+            2j * np.pi * doppler_hz * times
+        )
+        power = whole_record_power(samples, satellite, lattice, doppler_hz)
+        distinct = power[: lattice.samples_per_code_period]
+        peak, floor, shift, _ = acquisition.coherent_correlation(
+            samples, satellite, lattice, doppler_hz
+        )
+        assert peak == pytest.approx(float(distinct.max()), rel=1e-6)
+        assert floor == pytest.approx(
+            float(np.median(np.delete(distinct, int(np.argmax(distinct))))), rel=1e-9
+        )
+        assert abs((shift + lattice.samples_per_code_period / 2) % lattice.samples_per_code_period
+                   - lattice.samples_per_code_period / 2) < 0.5
+
+
+def test_correlation_falls_back_when_the_record_is_not_whole_code_periods(synthetic):
+    """A record the period-wise path cannot describe still correlates correctly."""
+    lattice = synthetic.lattice
+    length = lattice.samples_per_code_period * 8 - 500
+    row = synthetic.truth[6]
+    peak, floor, shift, _ = acquisition.coherent_correlation(
+        synthetic.samples[:length], 6, lattice, row["doppler_hz"]
+    )
+    assert peak / floor > 100.0
+    circular_error = (shift - row["delay_samples"] + lattice.samples_per_code_period / 2) % (
+        lattice.samples_per_code_period
+    ) - lattice.samples_per_code_period / 2
+    assert abs(circular_error) < 0.5

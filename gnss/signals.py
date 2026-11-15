@@ -13,6 +13,8 @@ Two replicas exist on purpose:
     code vector must be compared or flipped.
 """
 
+from functools import lru_cache
+
 import numpy as np
 
 from .vendor import add_to_import_path
@@ -40,9 +42,43 @@ def spreading_code_replica(
     )
 
 
+@lru_cache(maxsize=32)
+def sample_times(length: int, sample_rate_hz: float) -> np.ndarray:
+    """Sample times in seconds, cached: every correlation builds them for the same record."""
+    return np.arange(length) / sample_rate_hz
+
+
 def carrier(length: int, lattice: Lattice, doppler_hz: float, phase_rad: float = 0.0) -> np.ndarray:
-    times = np.arange(length) / lattice.sample_rate_hz
+    times = sample_times(length, lattice.sample_rate_hz)
     return np.exp(2j * np.pi * doppler_hz * times + 1j * phase_rad)
+
+
+@lru_cache(maxsize=64)
+def code_period_plan(satellite: int, lattice: Lattice, chip_offset: float = 0.0):
+    """One code period, its conjugate spectrum, and whether the whole replica is that period tiled.
+
+    `ca.code` advances through the chip array by a fixed increment, so the replica repeats every
+    code period exactly when that increment closes the code in whole chips over one period. On a
+    recording with 4 samples per chip it does, which is what makes a whole-record correlation
+    expressible with period-length transforms. The check is made rather than assumed: when it
+    fails, callers pay for the whole-record replica instead. Cached because none of this depends
+    on the Doppler grid that drives the searches.
+    """
+    period = lattice.samples_per_code_period
+    one = spreading_code_replica(satellite, period, lattice, None, chip_offset)
+    two = spreading_code_replica(satellite, 2 * period, lattice, None, chip_offset)
+    return np.conj(np.fft.fft(one)), one, bool(np.array_equal(two[:period], two[period:]))
+
+
+def tiled_code_replica(
+    satellite: int, length: int, lattice: Lattice, chip_offset: float = 0.0
+) -> np.ndarray:
+    """Spreading code over `length` samples, tiled from one cached period when the grid repeats."""
+    period = lattice.samples_per_code_period
+    _, one, periodic = code_period_plan(satellite, lattice, chip_offset)
+    if periodic and length % period == 0:
+        return np.tile(one, length // period)
+    return spreading_code_replica(satellite, length, lattice, None, chip_offset)
 
 
 def satellite_range() -> tuple:

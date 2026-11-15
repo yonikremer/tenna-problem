@@ -24,7 +24,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import acquisition as acquisition_module
-from . import alignment, chips, signals
+from . import chips, signals
 from . import rule as rule_module
 from .acquisition import Acquisition
 from .lattice import Lattice
@@ -105,7 +105,7 @@ def soft_chip_vectors(acquisition) -> tuple:
 
     units, coefficients, shifts = {}, {}, {}
     for prn, detection in acquisition.detected.items():
-        shift = alignment.aligned_shift(samples, prn, lattice, detection.doppler_hz)
+        shift = acquisition.aligned_shift(prn)
         shifts[prn] = shift
         units[prn] = signals.unit_signal(
             length, prn, lattice, detection.doppler_hz, shift, detection.bit_change_period
