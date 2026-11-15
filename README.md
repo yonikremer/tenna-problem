@@ -5,6 +5,18 @@ satellites on one carrier, each satellite's 1023-chip spreading code modified ch
 unknown binary sequence produced by a common rule. This repository finds the satellites, reads the
 modified chips out of the noise, recovers the rule, and proves the rule explains the data.
 
+## Start here, if you are reviewing this
+
+Two ways to read the solution, both self-contained:
+
+- **[The walkthrough](lessons/solution-workthrough.html)**: one page, six steps, from the raw samples
+  to the rule, with the measured numbers and the two figures. Open it in a browser.
+- **[The same page as a PDF](lessons/solution-workthrough.pdf)**: light theme, 12 pages, for reading
+  or printing offline.
+
+The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md), the method step by step in
+[`SOLUTION.md`](SOLUTION.md), and the limits in [`BENCHMARK.md`](BENCHMARK.md).
+
 ## Answer
 
 The two recordings share one rule. `prn_index` starts at 1.

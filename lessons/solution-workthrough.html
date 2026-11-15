@@ -57,7 +57,7 @@
 <li><code>data/&lt;name&gt;_transmitted_codes.npz</code>: the same as two 12 × 1023 arrays.</li>
 <li><code>data/&lt;name&gt;_solution.json</code>: the whole answer. Its <code>codes</code> key holds one row per PRN with <code>prn</code>, <code>transmitted_code</code> (all 1,023 chips), <code>original_code</code> (the published IS-GPS-200 C/A code, all 1,023 chips), and <code>modified_indexes</code>, which is exactly where the two differ. <code>rule.closed_form_flips</code> and <code>rule.closed_form_matches</code> sit beside it.</li>
 </ul>
-<p><code>solve.py</code> refuses to write a code that is not ±1 or whose changed chips differ from the recovered flips. On recording 1 <code>closed_form_matches</code> is true for all twelve PRNs. On recording 2 it is false for all twelve, because each PRN's list is missing the same one position, 987. That is one missing chip, not twelve faults.</p>
+<p><code>solve.py</code> refuses to write a code that is not ±1 or whose changed chips differ from the recovered flips. On recording 1 <code>closed_form_matches</code> is true for all twelve PRNs. On recording 2 it is false for all twelve, because each PRN's list is missing one chip: base position 987, which is 965 in PRN 12's own coordinates. That is one missing chip, not twelve faults.</p>
 </div>
 
 <h2 id="s1">1. The twelve PRNs, and the data bit</h2>
@@ -365,7 +365,7 @@
 </tbody>
 </table>
 
-<p>At 47.5 dB-Hz the exact 15-chip set came back in 839 of 1000 trials. 75 trials dropped one true chip and added nothing. That is the miss recording 2 shows. Nine dropped two true chips. 76 kept all 15 and added extras. One reported 15 chips but swapped one. A single dropped chip is 7.5 in 100. Any mistake is 16 in 100.</p>
+<p>At 47.5 dB-Hz the exact 15-chip set came back in 839 of 1000 trials. What that means for recording 2 is the next section; the figure below places the two files against the floor that this section is about.</p>
 
 <figure class="chart">
 <img class="chart-light" src="../assets/cn0_vs_duration_light.svg" width="900" height="544"
@@ -431,6 +431,7 @@
 
 <footer>
 <p class="kicker">Parameter table: <code>data/gnss_observation_acquisition.csv</code>, written by <code>solve.py</code>. Modified positions and transmitted codes: <a href="../solve.py">solve.py</a>. The closed form is checked against every recovered flip list in <code>solve.py</code> and recorded per PRN in <code>rule.closed_form_matches</code> inside <code>*_solution.json</code>. Residual powers and recording 2: the published <code>*_solution.json</code> files. The data-bit signs, the per-PRN false-alarm counts, the 66-pair lag matrix, and the aligned consensus were measured on <code>gnss_observation.nc</code> with this repo’s chip readout. The seed-subtraction correlation and the recording-2 chip readings were not re-run for this page. Those numbers are the published checks in <code>FINDINGS.md</code>. The 1000-trial noise test was re-run for this page, at 47.5 dB-Hz. The break-points are from <code>BENCHMARK.md</code>, not re-run for this page.</p>
+<p class="kicker">This page as a light-theme PDF: <a href="solution-workthrough.pdf">solution-workthrough.pdf</a>.</p>
 <p class="kicker">Intuition before this path: <a href="0001-one-band-twelve-signals.html">lesson 1</a>, <a href="0002-from-peak-to-prompt.html">lesson 2</a>. The same derivation in prose: <a href="../SOLUTION.md">SOLUTION.md</a>.</p>
 </footer>
 

@@ -320,8 +320,30 @@ footer p { margin: 0 0 0.45rem; max-width: none; }
 }
 
 @media print {
+  /* the printed copy is always the light sheet, whatever the screen theme is */
+  :root, html[data-theme="dark"] {
+    --bg: #fff;
+    --ink: #1a1d21;
+    --muted: #4e555d;
+    --line: #c5cad1;
+    --panel: #f4f5f7;
+    --code: #eef0f2;
+    --link: #0b3a66;
+  }
+
   nav { display: none; }
   .frame { display: block; }
-  main { padding: 0; }
+  main { padding: 0; max-width: none; }
+  body { font-size: 10.5pt; line-height: 1.4; }
   a { color: var(--ink); text-decoration: none; }
+
+  /* keep a figure, table or code block on one page, and a heading with its content */
+  figure, table, pre, .win, .note { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+  h2 { margin-top: 1.2rem; }
+
+  img.chart-dark { display: none !important; }
+  img.chart-light { display: block !important; }
+  figure.chart { overflow: visible; }
+  figure.chart img { min-width: 0; width: 100%; }
 }
