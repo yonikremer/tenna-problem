@@ -66,7 +66,7 @@ SCATTER_PALETTES = {
         "axis": "#d0d7de",
         "edge": "#0969da",
         "dots": {"#": "#1a7f37", "o": "#9a6700", ".": "#d1242f"},
-        "bands": (("#e4f5f2", "#0f766e"), ("#efe9fd", "#6d28d9")),
+        "bands": (("#b8dcd2", "#0f766e"), ("#dbccf8", "#6d28d9")),
     },
     "dark": {
         "bg": "#16181c",
@@ -77,7 +77,7 @@ SCATTER_PALETTES = {
         "axis": "#3a4048",
         "edge": "#539bf5",
         "dots": {"#": "#4ac26b", "o": "#d4a72c", ".": "#ff7b72"},
-        "bands": (("#16332e", "#34b3a0"), ("#262038", "#a371f7")),
+        "bands": (("#1f4038", "#34b3a0"), ("#3a2f57", "#a371f7")),
     },
 }
 REPORT_PATH = Path("BENCHMARK.md")
@@ -614,12 +614,16 @@ def _svg_legend(
     edge_colour: str,
     annotation: str,
     muted: str,
+    observations=(),
+    bands=(),
 ) -> None:
-    """Two rows underneath the plot: what a dot's colour means, then the two annotations.
+    """Two rows underneath the plot: what a mark means, then the annotations.
 
     The counts are spelled out rather than described as "half" and "above", so a reader does not
     have to hold the criterion in their head: with 100 recordings per point and the 95% criterion
-    the rows read 95-100, 50-94 and 0-49 fully recovered.
+    the rows read 95-100, 50-94 and 0-49 fully recovered. The two marks that are not data (the edge
+    marker and the search bound) get their own entries, because a reader who cannot find a mark in
+    the legend has to guess what it means.
     """
     at_criterion = round(criterion * signals)
     half = signals // 2
@@ -627,30 +631,59 @@ def _svg_legend(
         [
             ("dot", colours["#"], f"{at_criterion}-{signals} of {signals} fully recovered"),
             ("dot", colours["o"], f"{half}-{at_criterion - 1} of {signals} fully recovered"),
-            ("dot", colours["."], f"0-{half - 1} of {signals} fully recovered"),
+            ("ring", colours["."], f"0-{half - 1} of {signals} fully recovered"),
         ],
         [
             ("rule", annotation, "our record length"),
             ("dash", edge_colour, "located edge"),
+            ("bracket", edge_colour, "edge marker"),
+            ("bound", muted, "search bound, not a measurement"),
         ],
     ]
+    if observations:
+        rows.append(
+            [
+                ("swatch", bands[index % len(bands)][0], f"{label}: {low:g} to {high:g} dB-Hz")
+                for index, (label, low, high) in enumerate(observations)
+            ]
+        )
     for row, entries in enumerate(rows):
-        y = height - 38 + row * 24
+        y = height - 62 + row * 24
         x = left
         for kind, colour, label in entries:
             if kind == "dot":
-                parts.append(f'<circle cx="{x + 5}" cy="{y - 4}" r="4.5" fill="{colour}"/>')
-            elif kind == "rule":
+                parts.append(f'<circle cx="{x + 5:.1f}" cy="{y - 4}" r="3.4" fill="{colour}"/>')
+            elif kind == "ring":
                 parts.append(
-                    f'<line x1="{x + 6}" y1="{y - 13}" x2="{x + 6}" y2="{y + 3}" '
-                    f'stroke="{colour}" stroke-width="1.5"/>'
+                    f'<circle cx="{x + 5:.1f}" cy="{y - 4}" r="3.4" fill="none" '
+                    f'stroke="{colour}" stroke-width="1.6"/>'
+                )
+            elif kind == "bound":
+                parts.append(
+                    f'<circle cx="{x + 5:.1f}" cy="{y - 4}" r="3.0" fill="none" '
+                    f'stroke="{colour}" stroke-width="1.2"/>'
+                )
+            elif kind == "swatch":
+                parts.append(
+                    f'<rect x="{x:.1f}" y="{y - 8}" width="10" height="8" fill="{colour}"/>'
+                )
+            elif kind == "bracket":
+                parts.append(
+                    f'<line x1="{x:.1f}" y1="{y - 4}" x2="{x + 4.5:.1f}" y2="{y - 4}" '
+                    f'stroke="{colour}" stroke-width="2"/>'
+                )
+                parts.append(
+                    f'<line x1="{x + 9.5:.1f}" y1="{y - 4}" x2="{x + 14:.1f}" y2="{y - 4}" '
+                    f'stroke="{colour}" stroke-width="2"/>'
                 )
             else:
                 parts.append(
-                    f'<line x1="{x}" y1="{y - 4}" x2="{x + 14}" y2="{y - 4}" '
-                    f'stroke="{colour}" stroke-width="2.5" stroke-dasharray="5 4"/>'
+                    f'<line x1="{x:.1f}" y1="{y - 4}" x2="{x + 14:.1f}" y2="{y - 4}" '
+                    f'stroke="{colour}" stroke-width="2.5" stroke-dasharray="7 5"/>'
                 )
-            parts.append(f'<text x="{x + 22}" y="{y}" font-size="12" fill="{muted}">{label}</text>')
+            parts.append(
+                f'<text x="{x + 22:.1f}" y="{y}" font-size="12" fill="{muted}">{label}</text>'
+            )
             x += 26 + 6.9 * len(label)
 
 
@@ -660,16 +693,24 @@ def _scatter_svg(
     """The same scatter as an SVG, so it can be looked at rather than read.
 
     Hand-written, because the figure has to be produced by an environment that has nothing but
-    numpy. The sheet is laid out to be read without a caption: one warm column marking the 8 ms of
-    the supplied recordings, one band per record length showing the C/N0 it spans between a coin
-    flip and reliability, the probes themselves as dots coloured by their pass rate, and a dashed
-    line through the located edges. The legend sits in a row underneath so nothing competes with
-    the data for space, and the only text inside the plot is the 8 ms callout, which has the top of
-    that column to itself.
+    numpy. Layout decisions that are not obvious:
+
+    - The plotted range is 38 to 72 dB-Hz, wider than the 40 to 70 the axis is labelled with, so a
+      probe at either end is drawn whole instead of being cut in half by the frame.
+    - Grid lines go down first and the two recording bands over them, so a band never looks like a
+      doubled rule where a grid line falls inside it.
+    - The bands start at the 8 ms column, not at the left edge: they are facts about the supplied
+      recordings, which exist at one record length only. A full-width band would be crossed by the
+      edge line at 2 and 4 code periods and imply a comparison that was never made.
+    - The located edge is a bracket with a gap, not a circle around the point: near the edge the
+      probes are closer together than a marker is wide, so a ring would swallow three or four of
+      them, including ones of another class.
+    - The lowest pass class is an open marker and the search bounds are open small circles, so the
+      three classes differ in shape as well as colour, and a bound is not read as a result.
     """
-    low, high = 40.0, 70.0
-    width, height = 900, 520
-    left, right, top, bottom = 84, 28, 112, 104
+    low, high = 38.0, 72.0
+    width, height = 900, 544
+    left, right, top, bottom = 84, 28, 112, 140  # room for the axis title and three legend rows
     plot_width = width - left - right
     plot_height = height - top - bottom
     colours_theme = palette or SCATTER_PALETTES["light"]
@@ -690,10 +731,17 @@ def _scatter_svg(
         return float(top + (high - cn0) / (high - low) * plot_height)
 
     bottom_of_plot = top + plot_height
+    description = (
+        "C/N0 per PRN needed for exact recovery of a 15-chip mask, against record length in code "
+        f"periods from {periods[0]} to {periods[-1]}. Each dot is {signals} independent recordings "
+        "at that point. Open circles at the top and bottom of each column are the search bounds."
+    )
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" font-family="system-ui, -apple-system, Segoe UI, '
-        f'sans-serif">',
+        f'viewBox="0 0 {width} {height}" role="img" aria-labelledby="duration-figure-title" '
+        f'font-family="system-ui, -apple-system, Segoe UI, sans-serif">',
+        '<title id="duration-figure-title">Longer records read weaker signals</title>',
+        f"<desc>{description}</desc>",
         f'<rect width="{width}" height="{height}" fill="{colours_theme["bg"]}"/>',
         f'<text x="28" y="36" font-size="17" font-weight="600" fill="{ink}">'
         f"Longer records read weaker signals</text>",
@@ -703,30 +751,9 @@ def _scatter_svg(
         f"C/N0 needed for full recovery, by record length &#183; our two recordings shaded</text>",
     ]
 
-    # The two supplied recordings, as horizontal bands over the whole width: their own C/N0 span.
-    # Drawn first so they are washes behind the measurements, not shapes competing with them. Explicit
-    # light fills rather than fill-opacity, because not every SVG rasteriser honours opacity on a rect.
-    observation_colours = colours_theme["bands"]
-    for index, (label, observation_low, observation_high) in enumerate(OBSERVATIONS):
-        tint, ink_colour = observation_colours[index % len(observation_colours)]
-        y_top, y_bottom = y_of(observation_high), y_of(observation_low)
-        parts.append(
-            f'<rect x="{left}" y="{y_top:.1f}" width="{plot_width}" '
-            f'height="{max(y_bottom - y_top, 1.5):.1f}" fill="{tint}"/>'
-        )
-        for edge in (y_top, y_bottom):
-            parts.append(
-                f'<line x1="{left}" y1="{edge:.1f}" x2="{left + plot_width}" y2="{edge:.1f}" '
-                f'stroke="{ink_colour}" stroke-opacity="0.5" stroke-width="1"/>'
-            )
-        parts.append(
-            f'<text x="{left + plot_width - 8}" y="{y_top - 6:.1f}" text-anchor="end" '
-            f'font-size="11" font-weight="600" fill="{ink_colour}">{label}: '
-            f'{observation_low:g}-{observation_high:g} dB-Hz</text>'
-        )
-
-    cn0_tick = low
-    while cn0_tick <= high + 1e-9:
+    # grid first: the bands are washes and must not be cut by a grid line
+    cn0_tick = 40.0
+    while cn0_tick <= 70.0 + 1e-9:
         y = y_of(cn0_tick)
         parts.append(
             f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" y2="{y:.1f}" '
@@ -737,6 +764,29 @@ def _scatter_svg(
             f'fill="{muted}">{cn0_tick:g}</text>'
         )
         cn0_tick += 5.0
+
+    band_start = x_of(ASSIGNMENT_PERIODS) if ASSIGNMENT_PERIODS in periods else left
+    band_width = left + plot_width - band_start
+    observation_colours = colours_theme["bands"]
+    for index, (_, observation_low, observation_high) in enumerate(OBSERVATIONS):
+        tint, band_ink = observation_colours[index % len(observation_colours)]
+        y_top, y_bottom = y_of(observation_high), y_of(observation_low)
+        parts.append(
+            f'<rect x="{band_start:.1f}" y="{y_top:.1f}" width="{band_width:.1f}" '
+            f'height="{y_bottom - y_top:.1f}" fill="{tint}"/>'
+        )
+        for edge in (y_top, y_bottom):
+            parts.append(
+                f'<line x1="{band_start:.1f}" y1="{edge:.1f}" x2="{left + plot_width}" '
+                f'y2="{edge:.1f}" stroke="{band_ink}" stroke-opacity="0.6" stroke-width="1"/>'
+            )
+
+    parts += [
+        f'<line x1="{left}" y1="{bottom_of_plot}" x2="{left + plot_width}" y2="{bottom_of_plot}" '
+        f'stroke="{colours_theme["axis"]}"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom_of_plot}" '
+        f'stroke="{colours_theme["axis"]}"/>',
+    ]
     for count in periods:
         x = x_of(count)
         ours = count == ASSIGNMENT_PERIODS
@@ -746,18 +796,14 @@ def _scatter_svg(
             f'fill="{annotation if ours else muted}">{count}</text>'
         )
     parts += [
-        f'<line x1="{left}" y1="{bottom_of_plot}" x2="{left + plot_width}" y2="{bottom_of_plot}" '
-        f'stroke="{colours_theme["axis"]}"/>',
-        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{bottom_of_plot}" '
-        f'stroke="{colours_theme["axis"]}"/>',
         f'<text x="{left + plot_width / 2:.0f}" y="{bottom_of_plot + 44}" text-anchor="middle" '
         f'font-size="12" fill="{muted}">record length in code periods (log scale) &#183; '
-        f'1 period = 1 ms</text>',
+        f"1 period = 1 ms</text>",
         f'<text transform="translate(26 {top + plot_height / 2:.0f}) rotate(-90)" '
-        f'text-anchor="middle" font-size="12" fill="{muted}">C/N0 per PRN (dB-Hz)</text>',
+        f'text-anchor="middle" font-size="12" fill="{muted}">'
+        f"C/N0 needed for exact recovery (dB-Hz)</text>",
     ]
 
-    # one rule marking the record length of the supplied recordings, on top of the washes
     if ASSIGNMENT_PERIODS in periods:
         column = x_of(ASSIGNMENT_PERIODS)
         parts.append(
@@ -770,26 +816,12 @@ def _scatter_svg(
         )
 
     colours = colours_theme["dots"]
-    for index, record in enumerate(records):
-        if record["error"]:
-            continue
-        x = x_of(periods[index])
-        for cn0, passes in _probes_of(record):
-            parts.append(
-                f'<circle cx="{x:.1f}" cy="{y_of(cn0):.1f}" r="4.5" '
-                f'fill="{colours[_glyph(passes, signals, criterion)]}" fill-opacity="0.9"/>'
-            )
-        if record.get("located"):
-            parts.append(
-                f'<circle cx="{x:.1f}" cy="{y_of(record["located"][0]):.1f}" r="8" fill="none" '
-                f'stroke="{edge_colour}" stroke-width="2.5"/>'
-            )
-
     edges = [
         (x_of(periods[index]), y_of(record["located"][0]))
         for index, record in enumerate(records)
         if record.get("located")
     ]
+    # the trend goes under the marks, so it never cuts a dot in half
     if len(edges) > 1:
         path = " ".join(f"{x:.1f},{y:.1f}" for x, y in edges)
         parts.append(
@@ -797,11 +829,53 @@ def _scatter_svg(
             f'stroke-dasharray="7 5" stroke-linecap="round"/>'
         )
 
-    # legend in a row underneath: nothing has to be read around the data
-    _svg_legend(parts, left, height, colours, criterion, signals, edge_colour, annotation, muted)
+    for index, record in enumerate(records):
+        if record["error"]:
+            continue
+        x = x_of(periods[index])
+        probes = _probes_of(record)
+        for position, (cn0, passes) in enumerate(probes):
+            y = y_of(cn0)
+            if position in (0, len(probes) - 1):  # the two bracket ends, not results
+                parts.append(
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.0" fill="none" '
+                    f'stroke="{muted}" stroke-width="1.2"/>'
+                )
+                continue
+            glyph = _glyph(passes, signals, criterion)
+            if glyph == ".":  # open marker, so the classes differ in shape too
+                parts.append(
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="none" '
+                    f'stroke="{colours[glyph]}" stroke-width="1.7"/>'
+                )
+            else:
+                parts.append(
+                    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.4" fill="{colours[glyph]}" '
+                    f'fill-opacity="0.95"/>'
+                )
+        if record.get("located"):
+            y = y_of(record["located"][0])
+            for offset in (-9.0, 4.0):
+                parts.append(
+                    f'<line x1="{x + offset:.1f}" y1="{y:.1f}" x2="{x + offset + 5:.1f}" '
+                    f'y2="{y:.1f}" stroke="{edge_colour}" stroke-width="2.5"/>'
+                )
+
+    _svg_legend(
+        parts,
+        left,
+        height,
+        colours,
+        criterion,
+        signals,
+        edge_colour,
+        annotation,
+        muted,
+        observations=OBSERVATIONS,
+        bands=observation_colours,
+    )
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
-
 
 def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_FIGURE) -> list:
     """The `## Duration against C/N0` section: the minimal C/N0 at each record length."""
