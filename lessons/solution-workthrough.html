@@ -46,7 +46,7 @@
         chips.append(x)
         i += 1
     return chips</code></pre>
-<p><code>flipped_chips(1)</code> returns these fifteen chips. Recording 1 supports all of them. Recording 2's extractor drops one, chip 987.</p>
+<p><code>sorted(flipped_chips(1))</code> is these fifteen chips: the function walks downward from 1020, so sorted() puts them in the order below. Recording 1 supports all of them. Recording 2's extractor drops one, chip 987.</p>
 <p class="mono">34, 411, 644, 788, 877, 932, 966, 987, 1000, 1008, 1013, 1016, 1018, 1019, 1020</p>
 <p><a href="../solve.py">solve.py</a> is the whole solution in one command: acquisition, isolation, chip readout, the shift search, the rule, and the evidence. It applies <code>closed_form_flips</code> to both recordings and writes six files next to each recording.</p>
 <ul>
@@ -401,10 +401,10 @@
 <table>
 <tbody>
 <tr><th>Axis</th><th>Still exact</th><th>Where it breaks</th></tr>
-<tr><td>C/N0</td><td>The 95% edge is 49.4 dB-Hz. At 55 dB-Hz, 100 of 100 trials return the exact 15. At 47.5, 83 of 100 do.</td><td>45 dB-Hz still finds all 12 PRNs. Only 26 of 100 then recover every chip. At 40, none do.</td></tr>
+<tr><td>C/N0</td><td>The 95% edge is 49.4 dB-Hz. At 55 dB-Hz, 100 of 100 trials return the exact 15. At 47.5, 83 of 100 do; a 1000-trial run with recording 2's Dopplers, which is a different set of draws, returned 839.</td><td>45 dB-Hz still finds all 12 PRNs. Only 26 of 100 then recover every chip. At 40, none do.</td></tr>
 <tr><td>Flipped chips</td><td>3 to about 240 of 1023. One run at 200 came back one chip short.</td><td>At 320 the shift search locks onto 343 or 684, about 1023/3 and 2 times 1023/3. At 400, 4 to 6 of 12 PRNs are detected. At 500, none are. A code flipped in K places keeps (1023 − 2K)/1023 of the nominal correlation. Acquisition then fades.</td></tr>
-<tr><td>How many PRNs</td><td>6 to 30, at 52 dB-Hz.</td><td>1 PRN has nothing to shift against, so the slope is undefined. 2 to 4 miss chips. From 40 up, detection starts dropping PRNs: 78 of 80 at 80 PRNs, 197 to 202 of 210 at 210.</td></tr>
-<tr><td>Record length</td><td>4 ms and longer.</td><td>2 ms loses chips. Two code periods are not enough to fit the phase slope and read the mask.</td></tr>
+<tr><td>How many PRNs</td><td>4 to 30 recover every chip in both seeds at 52 dB-Hz. The 95% edge is 7 PRNs; 6 gives 94 of 100.</td><td>1 PRN has nothing to shift against, so the slope is undefined. 2 to 3 miss chips. From 40 up, detection starts dropping PRNs: 78 of 80 at 80 PRNs, 197 to 202 of 210 at 210.</td></tr>
+<tr><td>Record length</td><td>4 ms in both seeds. Over 100 signals per point the 95% edge is 5 code periods; 4 ms gives 94 of 100.</td><td>2 ms loses chips. Two code periods are not enough to fit the phase slope and read the mask.</td></tr>
 <tr><td>Doppler</td><td>All 12 at 0 Hz, within ±2 Hz, within ±20 Hz. Out to ±5.5 kHz with the default span.</td><td>±5.8 kHz is outside the span, so it is invisible. Widen the span and ±6, ±10, ±15, ±20 and ±30 kHz come back exact. The limit is the search window.</td></tr>
 <tr><td>Data bit flips mid-record</td><td>Exact. Worst Doppler error 3.7 Hz.</td><td>Before the sign pattern was in the fit, the same case returned about 100 Hz and claimed ±1.5 Hz.</td></tr>
 <tr><td>No shared rule, or no flips</td><td>Reports 0 chips at 0.000 dB.</td><td>Does not invent a mask. That is the pass.</td></tr>
@@ -425,7 +425,7 @@
 <li>One PRN cannot name its flips. A shared index list, or a shifted copy of that list, were the two rules worth testing. Circular correlation of every pair peaks at $-2(i-j)$.</li>
 <li>Roll, average. Exactly fifteen chips go negative. The sixteenth stays positive, nine standard deviations away.</li>
 <li>The gaps, small to large, are the Fibonacci sequence. <code>flipped_chips(prn)</code> starts at <code>1022 - 2*prn</code> and steps back by <code>fibonacci(i)</code> while the result stays at least 0.</li>
-<li>Recording 2 is the same mask, with lower C/N0, so the chip readings are noisier. Chip 987 reads +0.14. At 47.5 dB-Hz, 83 of 100 independent recordings return the exact 15; a longer 1000-trial run at the same point returned 839. 75 of those 1000 dropped one chip.</li>
+<li>Recording 2 is the same mask, with lower C/N0, so the chip readings are noisier. Chip 987 reads +0.14. At 47.5 dB-Hz with recording 2's Dopplers, 89 of 100 trials returned the exact set; the longer 1000-trial run at the same level returned 839, with 75 of those 1000 dropping one chip. Both counts come from their own draw sets, not from one run split two ways.</li>
 <li>The chain was broken on purpose, one axis at a time, then bisected over 100 independent recordings per point. The 95% edge is 49.4 dB-Hz, 5 code periods of record, 7 PRNs at the low end, 32 at the high end, and 140 flipped chips. Outside the Doppler span it was given, it finds nothing. With no shared rule, it reports 0 chips.</li>
 </ol>
 

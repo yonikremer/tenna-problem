@@ -80,15 +80,12 @@ structure is strong and unambiguous.
 `pytest.ini` enables coverage on every run and fails below 90%:
 
 ```text
-TOTAL                                1058     58    95%
-86 passed
+TOTAL                    974     45    95%
+181 passed
 ```
 
-Per-file coverage: `code_phase_accuracy.py` 100%, `nc2cu8.py` 100%, `acquire_nc.py` 97%,
-`interference_cancellation.py` 97%, `segment_identity.py` 96%, `greedy_flip.py` 95%,
-`joint_flips.py` 100%, `joint_flip.py` 100%, `bit_transition_check.py` 94%, `chip_bits.py` 93%, `gps_acquire.py` 91%,
-`dump_attrs.py` 85%. The uncovered lines are mostly error branches and defensive curvature /
-short-record paths.
+`gnss/` is covered module by module; `analysis/` scripts keep their own tests but are not part of
+the coverage requirement, because they are evidence rather than the shipped path.
 
 ## Correlation gain and chip repair
 
@@ -267,8 +264,9 @@ Code: `tests/global_flip.py` (`prepare`, `score_changes`, `brute_force_change`).
    correlation gain. All twelve held-out gains were **+0.19 to +0.34 dB** (mean +0.25 dB, theory
    +0.26 dB). Random 15-chip masks gave **-0.23 to -0.27 dB**.
 
-`data/gnss_observation2.nc` did not show a stable pattern: winning shifts were random and held-out gains
-were negative. Its signals are weaker, so the pattern is not recoverable there.
+`data/gnss_observation2.nc` recovers the same slope, 2 chips per PRN, and keeps 14 of the 15 rule
+positions. Its signals are 7 dB weaker, so the weakest position, base chip 987, falls under the
+count's cutoff; the recording is a sensitivity limit, not a different pattern.
 
 ## Second recording: 14 strong flips, 987 weak but kept with a warning
 
@@ -277,13 +275,13 @@ consensus has a hole. At the 15 base positions of `data/gnss_observation.nc`:
 
 | base chip | consensus (normalised) | satellites negative |
 | --- | --- | --- |
-| 987 | **+0.007** | **5/12** |
-| 1008 | -0.171 | 7/12 |
-| all other 13 | -0.419 to -0.954 | 7/12 to 12/12 |
+| 987 | -0.42 sigma | 6/12 |
+| 1008 | -0.92 sigma | 9/12 |
+| all other 13 | -1.38 to -3.69 sigma | 7/12 to 12/12 |
 
-So 987 has no measurable support in the second recording. It is still part of the 15-position
-rule and is emitted with a warning, not deleted. 1008 is weak and is the only uncertain one among
-the other 14.
+So 987 is present but weak: it reads a third of a full flip, six of twelve satellites put it below
+zero, and the count search drops it. It is still part of the 15-position rule and is emitted with a
+warning, not deleted. 1008 is the other uncertain one, and it survives the count.
 
 The count is chosen without assuming a value. Search every `K` from 1 upward, and for each `K`
 derive the base from 11 satellites, apply it to the left-out satellite, and measure correlation gain.
@@ -292,7 +290,7 @@ Average over all 12 left-out choices. The maximum is the data-driven count.
 | recording | best K | mean held-out gain at best K |
 | --- | --- | --- |
 | `data/gnss_observation.nc` | **15** | +0.249 dB |
-| `data/gnss_observation2.nc` | **14** | +0.246 dB |
+| `data/gnss_observation2.nc` | **14** | +0.235 dB |
 
 The earlier list `5,10,12,15,...` was only a diagnostic sweep; the choice below does not depend on it.
 

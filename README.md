@@ -21,7 +21,7 @@ def flipped_chips(prn_index: int) -> list[int]:
     return chips
 ```
 
-`flipped_chips(1)` is
+`sorted(flipped_chips(1))` is
 
 ```text
 34 411 644 788 877 932 966 987 1000 1008 1013 1016 1018 1019 1020
@@ -34,13 +34,25 @@ states instead of hiding.
 The same function is in the package as `gnss.rule.closed_form_flips`, and `solve.py` checks it against
 the recovered list for every PRN. The result goes into `<name>_solution.json` as
 `rule.closed_form_matches`: true for all twelve PRNs on recording 1, false for all twelve on
-recording 2. That looks like twelve failures and is one: every PRN's list lacks the same position,
-`987`. Compare `rule.closed_form_flips` with `rule.flips` in that file to see it.
+recording 2. That looks like twelve failures and is one: every PRN's list lacks the same base
+position, `987` in PRN 1's coordinates and `965` in PRN 12's, because each PRN's list is that base
+shifted by two chips. Compare `rule.closed_form_flips` with `rule.flips` in that file to see it.
 
 Full reasoning and measured evidence: [`FINDINGS.md`](FINDINGS.md). Step-by-step derivation of the
 whole method, with the arithmetic behind every threshold: [`SOLUTION.md`](SOLUTION.md). The same
 walkthrough as a page with live numbers and charts:
 [`lessons/solution-workthrough.html`](lessons/solution-workthrough.html).
+
+## Setup
+
+```text
+py -3 -m venv .venv
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+`requirements.txt` lists numpy and netCDF4 plus pytest and pytest-cov; CuPy is optional and used only
+when present. The commands below use the `.venv` interpreter on Windows; any Python with those
+packages works.
 
 ## Run it
 
@@ -139,10 +151,10 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 
 | axis | result with 12 PRNs at 55 dB-Hz |
 | --- | --- |
-| C/N0 per PRN | exact down to **47 dB-Hz**; at 45 dB-Hz 73-80% of the flips come back |
-| flipped chips per PRN | exact for **3 to 240** of 1023 (one run at 200 came back a chip short); shift search fails at 320, detection at 400, nothing at 500 |
-| PRNs at 52 dB-Hz | exact from **6 to 30**; 1 PRN cannot define a shift at all, 2–5 miss a chip or two, and from 40 up a few PRNs stop being *detected* (78/80 at 80 PRNs, 197–202/210 at 210) |
-| record length | **4 ms and longer** exact; 2 ms loses 13-40% of the flips |
+| C/N0 per PRN | exact in both seeds down to **51 dB-Hz**; 95% edge **49.4 dB-Hz** over 100 signals per point; at 45 dB-Hz 26 of 100 runs recover every chip |
+| flipped chips per PRN | exact in both seeds to **160** of 1023; 95% edge **140 chips** over 100 signals; the shift search fails at 320, detection at 400, nothing at 500 |
+| PRNs at 52 dB-Hz | exact in both seeds from **4 to 30**; 95% edge at **7 PRNs** (6 gives 94 of 100); 1 PRN cannot define a shift at all, 2–3 miss a chip, and from 40 up a few PRNs stop being *detected* (78/80 at 80 PRNs, 197–202/210 at 210) |
+| record length | exact in both seeds from **4 ms**; 95% edge **5 code periods** (4 ms gives 94 of 100); 2 ms loses 13-40% of the flips |
 | shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |
 | fractional code phase | flips exact at 0.25/0.5/0.75 sample offsets; residual power rises to 1.14x noise |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz |

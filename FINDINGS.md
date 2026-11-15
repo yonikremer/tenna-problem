@@ -584,9 +584,9 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | axis | result (baseline: 12 PRNs, 55 dB-Hz, 15 chips, 8 ms) |
 | --- | --- |
 | C/N0 per PRN | 95% edge at 49.4 dB-Hz over 100 independent signals per point (`breakpoints.py`); the two-seed sweep below is exact down to 47 dB-Hz, and at 45 dB-Hz recall falls to 0.73-0.80 |
-| flipped chips per PRN | exact for 3 to 240 of 1023; at 320 the shift search fails; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
-| PRNs at 52 dB-Hz | exact from 6 to 30 PRNs; 1 PRN cannot define a shift, 2-5 miss 1-3 chips, 40+ start losing detections |
-| record length | 4 ms and longer exact; 2 ms loses 13-40% of the chips |
+| flipped chips per PRN | exact in both seeds to 160; 95% edge 140 chips; the shift search fails at 320; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
+| PRNs at 52 dB-Hz | exact in both seeds from 4 to 30; 95% edge at 7 PRNs; 1 PRN cannot define a shift, 2-3 miss 1-3 chips, 40+ start losing detections |
+| record length | exact in both seeds from 4 ms; 95% edge 5 code periods (4 ms gives 94 of 100); 2 ms loses 13-40% of the chips |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |
 | Doppler | exact at 0 Hz, within +-2 Hz and within +-20 Hz; found to about +-5.5 kHz, nothing at +-5.8 kHz |
@@ -594,9 +594,10 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | data bits changing at random per PRN | exact at 8 and 16 ms; at 2 ms the Doppler fit degrades (371 Hz worst) |
 | independent flips per PRN / no modification | 0 chips at 0.000 dB held-out gain: no rule invented |
 
-**How many PRNs.** Below six, the combining gain is not there: one PRN cannot define a shift at all
+**How many PRNs.** Below six the combining gain is thin: one PRN cannot define a shift at all
 (there is nothing to relate it to, and the recovered pattern is empty), two keep 13-14 of the 15 chips,
-three to five miss one to three. Six to thirty recover every chip, every seed. From forty upwards the
+and three keeps 14 in one seed and all 15 in the other. Four to thirty recover every chip in both
+seeds; over 100 signals per point the 95% edge is seven PRNs, with six at 94 of 100. From forty upwards the
 limit is not the flip search but **detection**: 38/40 and 58/60 PRNs found at 40 and 60, 78/80 at 80,
 118/120 at 120, 158/160 at 160 and 197-202 out of 210. The cause is multi-access: at 52 dB-Hz a weak
 PRN's correlation peak can lose to the cross-correlation spikes of forty others, and the single-pass
