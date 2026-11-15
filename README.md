@@ -208,27 +208,6 @@ section of the same report, or the figure in two page themes,
 [`assets/cn0_vs_duration_light.svg`](assets/cn0_vs_duration_light.svg) and
 [`assets/cn0_vs_duration_dark.svg`](assets/cn0_vs_duration_dark.svg).
 
-## How this was built
-
-The assignment allows AI-assisted development tools, and this used one: an AI coding assistant wrote
-most of the code and most of the prose in this repository, including the walkthrough.
-
-What that does and does not buy the reader:
-
-- **Every number is checkable.** Each figure and table in these documents comes from a command in this
-  repo — `solve.py`, `benchmark.py`, `breakpoints.py`, or a script in `analysis/`. Nothing is quoted
-  from a summary; if a claim here is wrong, re-running the command says so.
-- **The reasoning is arithmetic, not assertion.** The walkthrough derives each threshold — the 36.1 dB
-  processing gain, the 500 Hz Doppler step, the ±5175 Hz span, the detection threshold, the 10.8 dB
-  combining gain — from constants you can check by hand.
-- **The mistakes are in the record.** The commit history is the working log, including the rounds that
-  exist only because a claim did not survive checking: a chip-labelling bug, a Doppler fit that was
-  95 Hz wrong while claiming ±1.4 Hz, figures redrawn after review, and two numbers corrected because
-  the command they cited no longer printed them. `FINDINGS.md`, "Bugs found and fixed", lists them.
-
-I directed the work, reviewed each result and can defend it line by line; the assistant did the typing,
-ran the experiments and produced the numbers.
-
 ## Third-party code, stated plainly
 
 The C/A spreading codes come from someone else's code, not mine.
