@@ -376,7 +376,7 @@ lowest carrier-to-noise density per PRN that still recovers every chip
 | 50 dB-Hz | 98/100 | 98% | 93% to 99% |
 | 40 dB-Hz (declared bad) | 0/100 | 0% | 0% to 4% |
 
-**Edge between 49.375 and 49.2188 dB-Hz** (resolution 0.25, criterion 95%). Probes on this axis: 9, 912 s.
+**Edge between 49.375 and 49.2188 dB-Hz** (resolution 0.25, criterion 95%). Probes on this axis: 9, 513 s.
 
 ### flip_count
 
@@ -394,7 +394,7 @@ largest number of flipped chips per PRN that still recovers exactly
 | 258 chips | 0/100 | 0% | 0% to 4% |
 | 500 chips (declared bad) | 0/100 | 0% | 0% to 4% |
 
-**Edge between 140 and 144 chips** (resolution 4, criterion 95%). Probes on this axis: 9, 957 s.
+**Edge between 140 and 144 chips** (resolution 4, criterion 95%). Probes on this axis: 9, 519 s.
 
 ### prns_low
 
@@ -409,7 +409,7 @@ fewest PRNs that still recover exactly (below it the combining gain is gone)
 | 9 PRNs | 100/100 | 100% | 96% to 100% |
 | 1 PRNs (declared bad) | 0/100 | 0% | 0% to 4% |
 
-**Edge between 7 and 6 PRNs** (resolution 1, criterion 95%). Probes on this axis: 6, 425 s.
+**Edge between 7 and 6 PRNs** (resolution 1, criterion 95%). Probes on this axis: 6, 256 s.
 
 ### prns_high
 
@@ -425,7 +425,7 @@ most PRNs that still recover exactly (beyond it the noise floor moves)
 | 66 PRNs | 39/100 | 39% | 30% to 49% |
 | 120 PRNs (declared bad) | 21/100 | 21% | 14% to 30% |
 
-**Edge between 32 and 36 PRNs** (resolution 4, criterion 95%). Probes on this axis: 7, 2786 s.
+**Edge between 32 and 36 PRNs** (resolution 4, criterion 95%). Probes on this axis: 7, 1782 s.
 
 ### doppler
 
@@ -445,9 +445,69 @@ shortest record, in code periods, that still recovers exactly
 | 6 code periods | 100/100 | 100% | 96% to 100% |
 | 1 code periods (declared bad) | 0/100 | 0% | 0% to 4% |
 
-**Edge between 5 and 4 code periods** (resolution 1, criterion 95%). Probes on this axis: 5, 340 s.
+**Edge between 5 and 4 code periods** (resolution 1, criterion 95%). Probes on this axis: 5, 213 s.
 
 ### Cost
 
-6 axes, 38 probes, 100 signals per probe: 3800 recordings scored in 94.3 min (1.49 s per recording). This is the measured cost of the probes, including any reused from the cache; this run took 0.0 min of wall clock.
+6 axes, 38 probes, 100 signals per probe: 3800 recordings scored in 58.6 min (0.93 s per recording). This is the measured cost of the probes, including any reused from the cache; this run took 0.0 min of wall clock.
+
+## Duration against C/N0
+
+Does a longer record buy a lower C/N0 floor for the full 15-chip recovery? A chip is measured once per code period, so every doubling of the record adds 3 dB of combining gain - in principle. This section measures where the floor actually is, one C/N0 bisection per record length, at the same 12 PRNs and 15 flipped chips as the assignment.
+
+### Minimal C/N0 per duration
+
+| code periods | duration | minimal C/N0 | rate there | 95% interval | first failure |
+| --- | --- | --- | --- | --- | --- |
+| 2 | 2 ms | **55.9375 dB-Hz** | 95/100 = 95% | 89% to 98% | 55.7031 dB-Hz |
+| 4 | 4 ms | **52.1875 dB-Hz** | 96/100 = 96% | 90% to 98% | 52.0312 dB-Hz |
+| 8 | 8 ms | **49.375 dB-Hz** | 95/100 = 95% | 89% to 98% | 49.2188 dB-Hz |
+| 16 | 16 ms | **45 dB-Hz** | 95/100 = 95% | 89% to 98% | 44.8438 dB-Hz |
+| 32 | 32 ms | **42.5 dB-Hz** | 95/100 = 95% | 89% to 98% | 42.3438 dB-Hz |
+
+From 2 to 32 code periods the floor moves 13.44 dB, which is **3.36 dB per doubling** of the record (3 dB is what perfect coherent combining of one more chip measurement per period would give).
+
+### Scatter, C/N0 against duration
+
+             2    4    8   16   32  
+         dB-Hz                 code periods (1 ms each)
+     70     #                      
+   62.5     #                      
+     60          #    #    #    #  
+  58.75     #                      
+ 56.875     #                      
+55.9375     #                      
+55.7031     o                      
+55.4688     o                      
+     55     o    #                 
+   52.5          #                 
+52.1875          #                 
+52.0312          o                 
+ 51.875          o                 
+  51.25          o                 
+     50          o    #    #    #  
+ 49.375               #            
+49.2188               o            
+49.0625               o            
+  48.75               o            
+   47.5               o            
+     45               .    #    #  
+44.8438                    o       
+44.6875                    o       
+ 44.375                    o       
+  43.75                    o       
+   42.5                    .    #  
+42.3438                         o  
+42.1875                         o  
+ 41.875                         o  
+  41.25                         o  
+     40     .    .    .    .    .  
+
+`#` at least 95 of 100 recover, `o` half to that, `.` below half, blank not probed.
+
+The same scatter as a picture: [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg).
+
+### Cost
+
+5 durations, 45 probes, 100 signals per probe: 4500 recordings scored in 81.1 min (1.08 s per recording).
 

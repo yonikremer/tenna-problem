@@ -112,3 +112,106 @@ def test_write_into_replaces_only_its_own_section(tmp_path):
     assert "## cn0" in text and "| a |" in text
     assert "fresh" in text and "stale" not in text
     assert text.count(breakpoints.SECTION_HEADING) == 1
+
+
+def a_record(passing, breaking, good, trace, located, seconds=1.0):
+    """The shape `locate` returns, so the renderers can be exercised without measuring."""
+    return {
+        "axis": "cn0",
+        "question": "a question",
+        "passing": passing,
+        "breaking": breaking,
+        "resolution": 0.25,
+        "unit": "dB-Hz",
+        "good_probe": (good, 100),
+        "bad_probe": (0, 100),
+        "trace": trace,
+        "located": located,
+        "error": None,
+        "seconds": seconds,
+    }
+
+
+def test_duration_axes_each_ask_about_their_own_record_length():
+    """The build closure must capture its own duration, not the last one the loop made."""
+    axes = breakpoints.duration_axes()
+    assert list(axes) == [2, 4, 8, 16, 32]
+    assert {periods: axis.scenario(55.0, 3).code_periods for periods, axis in axes.items()} == {
+        2: 2,
+        4: 4,
+        8: 8,
+        16: 16,
+        32: 32,
+    }
+    # a longer record carries more energy, so the floor it is bracketed against must not be higher
+    assert axes[2].passing >= axes[8].passing
+
+
+def test_duration_section_says_so_before_anything_is_measured(tmp_path):
+    figure = tmp_path / "figure.svg"
+    section = breakpoints.duration_section(tmp_path / "missing.json", figure)
+    assert section[0] == breakpoints.SECTION_DURATION_HEADING
+    assert "No probes measured yet" in " ".join(section)
+    assert not figure.exists(), "no figure can be drawn from no probes"
+
+
+def test_the_text_scatter_marks_every_probe_by_rate():
+    record = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (46.0, 40, 0.40)], (50.0, 49.0))
+    lines = breakpoints._text_scatter([record], [8], 100, 0.95)
+    by_value = {line.split()[0]: line for line in lines if line.strip() and line[0].isdigit()}
+    assert "#" in by_value["60"] and "#" in by_value["50"]
+    assert "." in by_value["46"] and "." in by_value["40"]
+    assert "46" in by_value and "40" in by_value
+
+
+def test_the_svg_has_one_circle_per_probe_and_closes():
+    record = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (46.0, 40, 0.40)], (50.0, 49.0))
+    svg = breakpoints._scatter_svg([record], [8], 100, 0.95)
+    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
+    # good end + two trace points + bad end + the edge marker + three legend swatches
+    assert svg.count("<circle") == 8
+    assert svg.count("<polyline") == 0, "one duration cannot draw an edge line"
+
+
+def test_the_svg_draws_the_edge_line_and_survives_a_broken_axis():
+    good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98)], (50.0, 49.0))
+    broken = {"axis": "cn0", "question": "q", "error": "bracket wrong", "trace": [], "seconds": 0.0}
+    svg = breakpoints._scatter_svg([good, broken], [8, 16], 100, 0.95)
+    assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
+
+
+def test_the_duration_section_reports_the_gain_per_doubling(monkeypatch, tmp_path):
+    """Two located edges 4 dB apart over two doublings must be reported as 4 dB per doubling."""
+    near = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98)], (50.0, 49.5))
+    far = a_record(60.0, 40.0, 100, [(42.0, 98, 0.98)], (42.0, 41.5))
+    monkeypatch.setattr(
+        breakpoints,
+        "_located",
+        lambda axes, cache_path: ([near, far], [8, 32], 100, 0.95, None),
+    )
+    figure = tmp_path / "figure.svg"
+    section = breakpoints.duration_section(tmp_path / "probes.json", figure)
+    text = " ".join(section)
+    assert section[0] == breakpoints.SECTION_DURATION_HEADING
+    assert "4.00 dB per doubling" in text
+    assert figure.as_posix() in text
+    assert figure.exists() and figure.read_text(encoding="utf-8").startswith("<svg")
+
+
+def test_each_probe_is_paid_for_once(monkeypatch):
+    """The reported cost must be the sum of the probes, not twice it.
+
+    Regression: the bisection measured each value, then the trace loop measured it again to recover
+    the pass count, so every stored cost was counted twice and the report claimed 1.8x the truth.
+    """
+    probed = []
+
+    def fake_probe(axis, value, signals, criterion, cache):
+        probed.append(value)
+        return (100 if value >= 50.0 else 0), 10.0
+
+    monkeypatch.setattr(breakpoints, "measure", fake_probe)
+    record = breakpoints.locate(breakpoints.AXES["cn0"], 100, 0.95, {})
+    assert len(probed) == len(set(probed)), f"a value was probed twice: {sorted(probed)}"
+    assert record["seconds"] == 10.0 * len(probed)
+    assert all(passes in (0, 100) for _, passes, _ in record["trace"])

@@ -129,6 +129,12 @@ bisects each axis for the value where exact recovery stops, quoting the binomial
 probe (100 signals resolve a 95% rate to about ±4 points). It also checks its own bracket before
 trusting a bisection. It is the `## Break points` section at the end of [`BENCHMARK.md`](BENCHMARK.md).
 
+`python breakpoints.py --duration` asks the same question in two dimensions instead of one: what is
+the lowest C/N0 that still recovers all 15 chips at each record length? The floor falls **13.4 dB
+between 2 and 32 code periods - 3.36 dB per doubling** of the record, which is what one more
+coherent chip measurement per period should buy. Scatter and numbers: the `## Duration against C/N0`
+section of the same report, or [`assets/cn0_vs_duration.svg`](assets/cn0_vs_duration.svg).
+
 ## Third-party code, stated plainly
 
 The C/A spreading codes come from someone else's code, not mine.

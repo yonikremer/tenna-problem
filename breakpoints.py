@@ -49,10 +49,18 @@ from benchmark import Scenario, score, synthesise
 
 WORK_DIR = Path("data/breakpoints")
 CACHE_PATH = Path("data/breakpoints/probes.json")
+DURATION_CACHE = Path("data/breakpoints/duration_cn0.json")
+DURATION_FIGURE = Path("assets/cn0_vs_duration.svg")
 REPORT_PATH = Path("BENCHMARK.md")
 
-# The heading this module owns in BENCHMARK.md. Everything from here down is replaced on a rerun.
+# The record lengths the duration experiment compares: each doubling is 1 ms of signal, and about
+# 3 dB of chip combining gain, which is exactly the quantity that experiment sets out to measure.
+DURATION_PERIODS = (2, 4, 8, 16, 32)
+
+# The headings this module owns in BENCHMARK.md. Everything from the first one down is replaced on a
+# rerun, because both sections are always written together and always come last.
 SECTION_HEADING = "## Break points"
+SECTION_DURATION_HEADING = "## Duration against C/N0"
 
 # A recovered recording counts when every PRN was found with no false alarm, the shift is right and
 # the recovered flip set matches the truth exactly - the same `verdict` the benchmark reports.
@@ -168,6 +176,28 @@ AXES = {
         ),
     ),
 }
+
+
+def duration_axes() -> dict:
+    """One C/N0 bisection per record length: the same question asked at five durations."""
+    axes = {}
+    for periods in DURATION_PERIODS:
+        axes[periods] = Axis(
+            name=f"cn0_{periods}periods",
+            question=f"lowest C/N0 per PRN that recovers every chip at {periods} code periods",
+            # two code periods cannot fit a phase slope and locate a step, so it needs more signal
+            passing=70.0 if periods <= 2 else 60.0,
+            breaking=40.0,
+            resolution=0.25,
+            unit="dB-Hz",
+            build=lambda value, seed, code_periods=periods: Scenario(
+                label=f"probe-seed{seed}",
+                code_periods=code_periods,
+                cn0_dbhz=value,
+                seed=seed,
+            ),
+        )
+    return axes
 
 
 def _speed_to_cover(doppler_hz: float) -> float:
@@ -290,10 +320,13 @@ def locate(
             f"the break is outside the bracket"
         )
     else:
+        seen = {}
 
         def rate_of(value):
-            passes, seconds = probe(axis, axis.snap(value), signals, criterion, cache)
+            snapped = axis.snap(value)
+            passes, seconds = probe(axis, snapped, signals, criterion, cache)
             spent.append(seconds)
+            seen[snapped] = passes
             return passes / signals
 
         passing, breaking, trace = bisect(
@@ -301,9 +334,10 @@ def locate(
         )
         record["located"] = (passing, breaking)
         for value, rate in trace:
-            passes, seconds = probe(axis, axis.snap(value), signals, criterion, cache)
-            spent.append(seconds)
-            record["trace"].append((axis.snap(value), passes, rate))
+            # reusing what the bisection already measured: probing again would double the reported
+            # cost and, on a live run, the wall clock
+            snapped = axis.snap(value)
+            record["trace"].append((snapped, seen[snapped], rate))
     # the cost of the probes, not the wall clock of this run: a cached probe still cost something
     record["seconds"] = sum(spent)
     return record
@@ -423,39 +457,35 @@ def save_cache(cache: dict, path: Path = CACHE_PATH) -> None:
     path.write_text(json.dumps(cache, indent=1, sort_keys=True), encoding="utf-8")
 
 
-def cached_section(cache_path: Path = CACHE_PATH) -> list:
-    """The section rendered from the cache alone, for `benchmark.py` to append to its report.
+def _located(axes: dict, cache_path: Path):
+    """(records, periods, signals, criterion, problem) located from the cache alone.
 
-    Never measures: a report run must not start four thousand recordings because a probe is missing.
-    An empty or inconsistent cache produces a line that says so, so the section can never silently
-    disappear and never quietly show a different experiment's numbers.
+    Never measures: a report run must not start thousands of recordings because a probe is missing.
+    A cache that is empty, or that mixes signal counts or criteria, comes back as a `problem` line
+    saying so - the section can then never silently disappear and never quietly quote a different
+    experiment's numbers.
     """
     cache = load_cache(cache_path)
     if not cache:
-        return [
-            SECTION_HEADING,
-            "",
-            "No probes measured yet, so this section is empty. Each sweep above uses two noise seeds "
-            "per point, which cannot say where a break is. Run `python breakpoints.py` to measure "
-            "it over 100 independent signals per point and fill this in.",
-            "",
-        ]
+        return [], [], 0, 0.0, (
+            "No probes measured yet. Each sweep above uses two noise seeds per point, which cannot "
+            "say where a break is. Run `python breakpoints.py` to measure it over 100 independent "
+            "signals per point."
+        )
     counts = {entry.get("signals") for entry in cache.values()}
     criteria = {entry.get("criterion") for entry in cache.values()}
     if None in counts or None in criteria or len(counts) != 1 or len(criteria) != 1:
-        return [
-            SECTION_HEADING,
-            "",
+        return [], [], 0, 0.0, (
             f"The probe cache at `{cache_path}` does not record one signal count and one criterion "
             f"for every probe (found {sorted(map(str, counts))} signals and "
             f"{sorted(map(str, criteria))} criteria), so no single rate can be quoted for it. "
-            f"Delete it and run `python breakpoints.py` again.",
-            "",
-        ]
+            f"Delete it and run `python breakpoints.py` again."
+        )
     signals = counts.pop()
     criterion = criteria.pop()
+    periods = list(axes)
     records = []
-    for axis in AXES.values():
+    for axis in axes.values():
         try:
             records.append(locate(axis, signals, criterion, cache, probe=cache_only))
         except KeyError as error:
@@ -469,15 +499,267 @@ def cached_section(cache_path: Path = CACHE_PATH) -> list:
                     "seconds": 0.0,
                 }
             )
+    return records, periods, signals, criterion, None
+
+
+def cached_section(cache_path: Path = CACHE_PATH) -> list:
+    """The `## Break points` section, rendered from the cache alone."""
+    records, _periods, signals, criterion, problem = _located(AXES, cache_path)
+    if problem:
+        return [SECTION_HEADING, "", problem, ""]
     return report(records, signals, criterion, 0.0)
 
 
-def write_into(path: Path, section: list) -> None:
-    """Replace this report's section in `path`, keeping every sweep above it untouched."""
+def _probes_of(record: dict) -> list:
+    """Every (C/N0, rate) this axis actually probed, bracket ends included."""
+    points = [(record["passing"], record["good_probe"][0])]
+    points += [(value, passes) for value, passes, _ in record["trace"]]
+    points.append((record["breaking"], record["bad_probe"][0]))
+    return points
+
+
+def _glyph(rate: float | None, signals: int, criterion: float) -> str:
+    if rate is None:
+        return " "
+    fraction = rate / signals
+    if fraction >= criterion:
+        return "#"
+    return "o" if fraction >= 0.5 else "."
+
+
+def _text_scatter(records: list, periods: list, signals: int, criterion: float) -> list:
+    """C/N0 down the page against duration across it, one glyph per probe actually run."""
+    measured = {periods[index]: dict(_probes_of(record)) for index, record in enumerate(records)}
+    rows = sorted({value for record in records for value, _ in _probes_of(record)}, reverse=True)
+    label_width = max(len(f"{value:g}") for value in rows)
+    lines = [
+        " " * (label_width + 4) + "".join(f"{periods_count:^5d}" for periods_count in periods),
+        " " * (label_width + 2)
+        + "dB-Hz"
+        + " " * (5 * len(periods) - 5 - len("dB-Hz") + 2)
+        + "code periods (1 ms each)",
+    ]
+    for value in rows:
+        cells = "".join(
+            f"{_glyph(measured[periods_count].get(value), signals, criterion):^5}"
+            for periods_count in periods
+        )
+        lines.append(f"{value:>{label_width}g}   {cells}")
+    lines += [
+        "",
+        f"`#` at least {round(criterion * signals)} of {signals} recover, `o` half to that, `.` below "
+        "half, blank not probed.",
+    ]
+    return lines
+
+
+def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -> str:
+    """The same scatter as an SVG, so it can be looked at rather than read.
+
+    Hand-written because the alternative was a fifty-megabyte plotting dependency for one figure;
+    the sheet is axis lines, one circle per probe and a dashed line through the located edges.
+    """
+    low, high = 40.0, 70.0
+    width, height, left, right, top, bottom = 780, 470, 86, 26, 46, 70
+    plot_width, plot_height = width - left - right, height - top - bottom
+    spans = np.log2(periods)
+    span = float(spans.max() - spans.min())
+
+    def x_of(count: int) -> float:
+        if span == 0.0:  # a single duration has no axis to spread over
+            return float(left + plot_width / 2)
+        return float(left + (np.log2(count) - spans.min()) / span * plot_width)
+
+    def y_of(cn0: float) -> float:
+        return float(top + (high - cn0) / (high - low) * plot_height)
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" font-family="system-ui, sans-serif" font-size="13">',
+        f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
+        f'<text x="{left}" y="26" font-size="15" font-weight="600">Minimal C/N0 for full 15-chip '
+        f'recovery against record length</text>',
+        f'<text x="{left}" y="42" fill="#57606a">{signals} independent signals per probe, '
+        f'criterion {round(criterion * signals)} of {signals}; 12 PRNs, 15 flipped chips</text>',
+    ]
+    cn0_tick = low
+    while cn0_tick <= high + 1e-9:
+        y = y_of(cn0_tick)
+        parts.append(f'<line x1="{left}" y1="{y:.1f}" x2="{left + plot_width}" y2="{y:.1f}" stroke="#eaeef2"/>')
+        parts.append(f'<text x="{left - 10}" y="{y + 4:.1f}" text-anchor="end" fill="#57606a">{cn0_tick:g}</text>')
+        cn0_tick += 5.0
+    for count in periods:
+        x = x_of(count)
+        parts.append(f'<line x1="{x:.1f}" y1="{top}" x2="{x:.1f}" y2="{top + plot_height}" stroke="#eaeef2"/>')
+        parts.append(f'<text x="{x:.1f}" y="{top + plot_height + 20}" text-anchor="middle">{count}</text>')
+        parts.append(f'<text x="{x:.1f}" y="{top + plot_height + 36}" text-anchor="middle" fill="#57606a">{count} ms</text>')
+    parts += [
+        f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="#8c959f"/>',
+        f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="#8c959f"/>',
+        f'<text x="{left + plot_width / 2:.0f}" y="{height - 14}" text-anchor="middle" fill="#57606a">'
+        f'record length, code periods (log scale)</text>',
+        f'<text transform="translate(20 {top + plot_height / 2:.0f}) rotate(-90)" text-anchor="middle" '
+        f'fill="#57606a">C/N0 per PRN, dB-Hz</text>',
+    ]
+    colours = {"#": "#1a7f37", "o": "#bf8700", ".": "#d1242f"}
+    for index, record in enumerate(records):
+        if record["error"]:
+            continue
+        x = x_of(periods[index])
+        for cn0, passes in _probes_of(record):
+            glyph = _glyph(passes, signals, criterion)
+            parts.append(
+                f'<circle cx="{x:.1f}" cy="{y_of(cn0):.1f}" r="5" fill="{colours[glyph]}" '
+                f'fill-opacity="0.85"/>'
+            )
+        if record.get("located"):
+            parts.append(
+                f'<circle cx="{x:.1f}" cy="{y_of(record["located"][0]):.1f}" r="9" fill="none" '
+                f'stroke="#0969da" stroke-width="2"/>'
+            )
+    edges = [
+        (x_of(periods[index]), y_of(record["located"][0]))
+        for index, record in enumerate(records)
+        if record.get("located")
+    ]
+    if len(edges) > 1:
+        path = " ".join(f"{x:.1f},{y:.1f}" for x, y in edges)
+        parts.append(f'<polyline points="{path}" fill="none" stroke="#0969da" stroke-width="2" stroke-dasharray="6 4"/>')
+    legend = [("#", "at or above the criterion"), ("o", "half to the criterion"), (".", "below half")]
+    for row, (glyph, text) in enumerate(legend):
+        y = top + 16 + row * 20
+        parts.append(f'<circle cx="{left + plot_width - 210}" cy="{y - 4}" r="5" fill="{colours[glyph]}" fill-opacity="0.85"/>')
+        parts.append(f'<text x="{left + plot_width - 198}" y="{y}" fill="#57606a">{text}</text>')
+    parts.append(f'<text x="{left + plot_width - 210}" y="{top + 76}" fill="#0969da">dashed: located edge</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def duration_section(cache_path: Path = DURATION_CACHE, figure: Path = DURATION_FIGURE) -> list:
+    """The `## Duration against C/N0` section: the minimal C/N0 at each record length."""
+    axes = duration_axes()
+    records, periods, signals, criterion, problem = _located(axes, cache_path)
+    lines = [
+        SECTION_DURATION_HEADING,
+        "",
+        "Does a longer record buy a lower C/N0 floor for the full 15-chip recovery? A chip is measured "
+        "once per code period, so every doubling of the record adds 3 dB of combining gain - in "
+        "principle. This section measures where the floor actually is, one C/N0 bisection per record "
+        "length, at the same 12 PRNs and 15 flipped chips as the assignment.",
+        "",
+    ]
+    if problem:
+        lines.extend([problem, ""])
+        return lines
+    lines.extend(
+        [
+            "### Minimal C/N0 per duration",
+            "",
+            "| code periods | duration | minimal C/N0 | rate there | 95% interval | first failure |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for index, record in enumerate(records):
+        if record["error"]:
+            lines.append(f"| {periods[index]} | {periods[index]} ms | **bracket wrong** | {record['error']} | | |")
+            continue
+        passing, breaking = record["located"]
+        passes = next((p for value, p, _ in record["trace"] if value == passing), None)
+        if passes is None:
+            passes = record["good_probe"][0]
+        low, high = wilson_interval(passes, signals)
+        lines.append(
+            f"| {periods[index]} | {periods[index]} ms | **{passing:g} dB-Hz** | "
+            f"{passes}/{signals} = {100 * passes / signals:.0f}% | "
+            f"{100 * low:.0f}% to {100 * high:.0f}% | {breaking:g} dB-Hz |"
+        )
+    located = [
+        (periods[index], record["located"][0])
+        for index, record in enumerate(records)
+        if record["located"]
+    ]
+    if len(located) > 1:
+        first, last = located[0], located[-1]
+        per_doubling = (first[1] - last[1]) / (np.log2(last[0]) - np.log2(first[0]))
+        lines.extend(
+            [
+                "",
+                f"From {first[0]} to {last[0]} code periods the floor moves {first[1] - last[1]:.2f} dB, "
+                f"which is **{per_doubling:.2f} dB per doubling** of the record (3 dB is what perfect "
+                f"coherent combining of one more chip measurement per period would give).",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "### Scatter, C/N0 against duration",
+            "",
+            *(_text_scatter(records, periods, signals, criterion)),
+            "",
+        ]
+    )
+    try:
+        figure.parent.mkdir(parents=True, exist_ok=True)
+        figure.write_text(_scatter_svg(records, periods, signals, criterion), encoding="utf-8")
+        lines.extend([f"The same scatter as a picture: [`{figure.as_posix()}`]({figure.as_posix()}).", ""])
+    except OSError as error:
+        lines.extend([f"The SVG could not be written ({error}); the text scatter above is the data.", ""])
+    probes = sum(len(record["trace"]) + 2 for record in records)
+    measured = sum(record["seconds"] for record in records)
+    lines.extend(
+        [
+            "### Cost",
+            "",
+            f"{len(records)} durations, {probes} probes, {signals} signals per probe: "
+            f"{probes * signals} recordings scored in {measured / 60:.1f} min "
+            f"({measured / max(probes * signals, 1):.2f} s per recording).",
+            "",
+        ]
+    )
+    return lines
+
+
+def report_sections() -> list:
+    """Both measured sections, in report order, rendered from the caches alone."""
+    return cached_section() + duration_section()
+
+
+def write_into(path: Path, sections: list) -> None:
+    """Replace every measured section in `path`, keeping all the sweeps above them untouched."""
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     above = text.split(SECTION_HEADING)[0].rstrip()
-    body = "\n".join(section)
+    body = "\n".join(sections)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text((above + "\n\n" if above else "") + body + "\n", encoding="utf-8")
+
+
+def measure_axes(axes: dict, signals: int, criterion: float, cache_path: Path) -> tuple:
+    """Bisect every axis, printing each probe, saving the cache after each one; return (records, s)."""
+    cache = load_cache(cache_path)
+    if any(
+        entry.get("signals") != signals or entry.get("criterion") != criterion
+        for entry in cache.values()
+    ):
+        # a different signal count or criterion is a different experiment: never mix the two
+        cache = {}
+    started = time.perf_counter()
+    records = []
+    for name, axis in axes.items():
+        print(f"\n## {name}: {axis.question}", flush=True)
+        record = locate(axis, signals, criterion, cache)
+        save_cache(cache, cache_path)
+        if record["error"]:
+            print(f"  {record['error']}", flush=True)
+        else:
+            for value, passes, _ in sorted(record["trace"]):
+                print(f"  {value:>8g} {axis.unit:<12} {passes:>3}/{signals}", flush=True)
+            passing, breaking = record["located"]
+            print(
+                f"  edge between {passing:g} and {breaking:g} {axis.unit} ({record['seconds']:.0f} s)",
+                flush=True,
+            )
+        records.append(record)
+    return records, time.perf_counter() - started
 
 
 def main(argv=None) -> int:
@@ -493,47 +775,41 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--axes", nargs="*", default=None, help=f"axes to probe: {sorted(AXES)}")
     parser.add_argument("--cache", default=str(CACHE_PATH), help="probe cache, so a rerun is cheap")
-    parser.add_argument("--report", default=str(REPORT_PATH), help="report whose section is replaced")
+    parser.add_argument(
+        "--duration",
+        action="store_true",
+        help="measure the duration-against-C/N0 experiment instead of the break-point axes",
+    )
+    parser.add_argument(
+        "--duration-cache",
+        default=str(DURATION_CACHE),
+        help="probe cache for the duration experiment",
+    )
+    parser.add_argument("--report", default=str(REPORT_PATH), help="report whose sections are replaced")
     arguments = parser.parse_args(argv)
 
-    selected = {name: AXES[name] for name in (arguments.axes or AXES)}
-    cache_path = Path(arguments.cache)
-    cache = load_cache(cache_path)
-    if any(
-        entry.get("signals") != arguments.signals or entry.get("criterion") != arguments.criterion
-        for entry in cache.values()
-    ):
-        # a different signal count or criterion is a different experiment: never mix the two
-        cache = {}
+    if arguments.duration:
+        records, total = measure_axes(
+            duration_axes(), arguments.signals, arguments.criterion, Path(arguments.duration_cache)
+        )
+    else:
+        records, total = measure_axes(
+            {name: AXES[name] for name in (arguments.axes or AXES)},
+            arguments.signals,
+            arguments.criterion,
+            Path(arguments.cache),
+        )
 
-    started = time.perf_counter()
-    records = []
-    for name, axis in selected.items():
-        print(f"\n## {name}: {axis.question}", flush=True)
-        record = locate(axis, arguments.signals, arguments.criterion, cache)
-        save_cache(cache, cache_path)
-        if record["error"]:
-            print(f"  {record['error']}", flush=True)
-        else:
-            for value, passes, _ in sorted(record["trace"]):
-                print(f"  {value:>8g} {axis.unit:<12} {passes:>3}/{arguments.signals}", flush=True)
-            passing, breaking = record["located"]
-            print(
-                f"  edge between {passing:g} and {breaking:g} {axis.unit} ({record['seconds']:.0f} s)",
-                flush=True,
-            )
-        records.append(record)
-
-    total = time.perf_counter() - started
-    section = report(records, arguments.signals, arguments.criterion, total)
+    # both measured sections are rewritten together: they are the last thing in the report and one
+    # command must never leave the other one stale or duplicated
     report_path = Path(arguments.report)
-    write_into(report_path, section)
-    print(f"\n-> {report_path} (## Break points section)")
+    write_into(report_path, report_sections())
+    print(f"\n-> {report_path} (measured sections rewritten)")
     print(
         json.dumps(
             {
                 "axes": len(records),
-                "recordings": sum(len(record["trace"]) + 2 for record in records) * arguments.signals,
+                "recordings": sum(len(record["trace"]) + 2 for record in records)* arguments.signals,
                 "seconds": round(total),
             }
         )

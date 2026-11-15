@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="470" viewBox="0 0 780 470" font-family="system-ui, sans-serif" font-size="13">
+<rect width="780" height="470" fill="#ffffff"/>
+<text x="86" y="26" font-size="15" font-weight="600">Minimal C/N0 for full 15-chip recovery against record length</text>
+<text x="86" y="42" fill="#57606a">100 independent signals per probe, criterion 95 of 100; 12 PRNs, 15 flipped chips</text>
+<line x1="86" y1="400.0" x2="754" y2="400.0" stroke="#eaeef2"/>
+<text x="76" y="404.0" text-anchor="end" fill="#57606a">40</text>
+<line x1="86" y1="341.0" x2="754" y2="341.0" stroke="#eaeef2"/>
+<text x="76" y="345.0" text-anchor="end" fill="#57606a">45</text>
+<line x1="86" y1="282.0" x2="754" y2="282.0" stroke="#eaeef2"/>
+<text x="76" y="286.0" text-anchor="end" fill="#57606a">50</text>
+<line x1="86" y1="223.0" x2="754" y2="223.0" stroke="#eaeef2"/>
+<text x="76" y="227.0" text-anchor="end" fill="#57606a">55</text>
+<line x1="86" y1="164.0" x2="754" y2="164.0" stroke="#eaeef2"/>
+<text x="76" y="168.0" text-anchor="end" fill="#57606a">60</text>
+<line x1="86" y1="105.0" x2="754" y2="105.0" stroke="#eaeef2"/>
+<text x="76" y="109.0" text-anchor="end" fill="#57606a">65</text>
+<line x1="86" y1="46.0" x2="754" y2="46.0" stroke="#eaeef2"/>
+<text x="76" y="50.0" text-anchor="end" fill="#57606a">70</text>
+<line x1="86.0" y1="46" x2="86.0" y2="400" stroke="#eaeef2"/>
+<text x="86.0" y="420" text-anchor="middle">2</text>
+<text x="86.0" y="436" text-anchor="middle" fill="#57606a">2 ms</text>
+<line x1="253.0" y1="46" x2="253.0" y2="400" stroke="#eaeef2"/>
+<text x="253.0" y="420" text-anchor="middle">4</text>
+<text x="253.0" y="436" text-anchor="middle" fill="#57606a">4 ms</text>
+<line x1="420.0" y1="46" x2="420.0" y2="400" stroke="#eaeef2"/>
+<text x="420.0" y="420" text-anchor="middle">8</text>
+<text x="420.0" y="436" text-anchor="middle" fill="#57606a">8 ms</text>
+<line x1="587.0" y1="46" x2="587.0" y2="400" stroke="#eaeef2"/>
+<text x="587.0" y="420" text-anchor="middle">16</text>
+<text x="587.0" y="436" text-anchor="middle" fill="#57606a">16 ms</text>
+<line x1="754.0" y1="46" x2="754.0" y2="400" stroke="#eaeef2"/>
+<text x="754.0" y="420" text-anchor="middle">32</text>
+<text x="754.0" y="436" text-anchor="middle" fill="#57606a">32 ms</text>
+<line x1="86" y1="400" x2="754" y2="400" stroke="#8c959f"/>
+<line x1="86" y1="46" x2="86" y2="400" stroke="#8c959f"/>
+<text x="420" y="456" text-anchor="middle" fill="#57606a">record length, code periods (log scale)</text>
+<text transform="translate(20 223) rotate(-90)" text-anchor="middle" fill="#57606a">C/N0 per PRN, dB-Hz</text>
+<circle cx="86.0" cy="46.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="86.0" cy="223.0" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="86.0" cy="134.5" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="86.0" cy="178.8" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="86.0" cy="200.9" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="86.0" cy="211.9" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="86.0" cy="217.5" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="86.0" cy="214.7" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="86.0" cy="400.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="86.0" cy="211.9" r="9" fill="none" stroke="#0969da" stroke-width="2"/>
+<circle cx="253.0" cy="164.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="253.0" cy="282.0" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="253.0" cy="223.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="253.0" cy="252.5" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="253.0" cy="267.2" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="253.0" cy="259.9" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="253.0" cy="256.2" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="253.0" cy="258.0" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="253.0" cy="400.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="253.0" cy="256.2" r="9" fill="none" stroke="#0969da" stroke-width="2"/>
+<circle cx="420.0" cy="164.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="420.0" cy="282.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="420.0" cy="341.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="420.0" cy="311.5" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="420.0" cy="296.8" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="420.0" cy="289.4" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="420.0" cy="293.1" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="420.0" cy="291.2" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="420.0" cy="400.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="420.0" cy="289.4" r="9" fill="none" stroke="#0969da" stroke-width="2"/>
+<circle cx="587.0" cy="164.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="587.0" cy="282.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="587.0" cy="341.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="587.0" cy="370.5" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="587.0" cy="355.8" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="587.0" cy="348.4" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="587.0" cy="344.7" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="587.0" cy="342.8" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="587.0" cy="400.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="587.0" cy="341.0" r="9" fill="none" stroke="#0969da" stroke-width="2"/>
+<circle cx="754.0" cy="164.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="754.0" cy="282.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="754.0" cy="341.0" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="754.0" cy="370.5" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<circle cx="754.0" cy="385.2" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="754.0" cy="377.9" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="754.0" cy="374.2" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="754.0" cy="372.3" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<circle cx="754.0" cy="400.0" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<circle cx="754.0" cy="370.5" r="9" fill="none" stroke="#0969da" stroke-width="2"/>
+<polyline points="86.0,211.9 253.0,256.2 420.0,289.4 587.0,341.0 754.0,370.5" fill="none" stroke="#0969da" stroke-width="2" stroke-dasharray="6 4"/>
+<circle cx="544" cy="58" r="5" fill="#1a7f37" fill-opacity="0.85"/>
+<text x="556" y="62" fill="#57606a">at or above the criterion</text>
+<circle cx="544" cy="78" r="5" fill="#bf8700" fill-opacity="0.85"/>
+<text x="556" y="82" fill="#57606a">half to the criterion</text>
+<circle cx="544" cy="98" r="5" fill="#d1242f" fill-opacity="0.85"/>
+<text x="556" y="102" fill="#57606a">below half</text>
+<text x="544" y="122" fill="#0969da">dashed: located edge</text>
+</svg>

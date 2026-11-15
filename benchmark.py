@@ -772,12 +772,12 @@ def main(argv=None) -> int:
         sections.append(HEADER)
         sections.extend(table_row(row) for row in rows)
         sections.append("")
-    # The break-point half of this report: 100 signals per point instead of two seeds, measured by
-    # `breakpoints.py` and rendered here from its cache. Imported late because that module needs
+    # The measured half of this report: 100 signals per point instead of two seeds, measured by
+    # `breakpoints.py` and rendered here from its caches. Imported late because that module needs
     # `Scenario` and `score` from this one, and because a sweep-only run should not pay for it.
-    from breakpoints import cached_section
+    from breakpoints import report_sections
 
-    sections.extend(cached_section())
+    sections.extend(report_sections())
     Path(arguments.out).write_text("\n".join(sections) + "\n", encoding="utf-8")
     print(f"\n-> {arguments.out}")
     print(json.dumps({"runs": sum(len(rows) for rows in results.values())}))
