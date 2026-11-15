@@ -87,14 +87,14 @@
 <circle cx="872.0" cy="416.0" r="4.5" fill="#d1242f" fill-opacity="0.9"/>
 <circle cx="872.0" cy="390.7" r="8" fill="none" stroke="#0969da" stroke-width="2.5"/>
 <polyline points="84.0,254.5 281.0,292.5 478.0,321.0 675.0,365.3 872.0,390.7" fill="none" stroke="#0969da" stroke-width="2.5" stroke-dasharray="7 5" stroke-linecap="round"/>
-<circle cx="89" cy="490" r="4.5" fill="#1a7f37"/>
-<text x="106" y="494" font-size="12" fill="#57606a">at least 95 of 100 recover</text>
-<circle cx="290.6" cy="490" r="4.5" fill="#bf8700"/>
-<text x="307.6" y="494" font-size="12" fill="#57606a">half to that</text>
-<circle cx="399.8" cy="490" r="4.5" fill="#d1242f"/>
-<text x="416.8" y="494" font-size="12" fill="#57606a">below half</text>
-<line x1="496.8" y1="482" x2="496.8" y2="497" stroke="#414a53" stroke-width="1.5"/>
-<text x="512.8" y="494" font-size="12" fill="#57606a">our record length</text>
-<line x1="633.0" y1="490" x2="647.0" y2="490" stroke="#0969da" stroke-width="2.5" stroke-dasharray="5 4"/>
-<text x="655.0" y="494" font-size="12" fill="#57606a">located edge</text>
+<circle cx="89" cy="478" r="4.5" fill="#1a7f37"/>
+<text x="106" y="482" font-size="12" fill="#57606a">95-100 of 100 fully recovered</text>
+<circle cx="315.1" cy="478" r="4.5" fill="#bf8700"/>
+<text x="332.1" y="482" font-size="12" fill="#57606a">50-94 of 100 fully recovered</text>
+<circle cx="534.3000000000001" cy="478" r="4.5" fill="#d1242f"/>
+<text x="551.3000000000001" y="482" font-size="12" fill="#57606a">0-49 of 100 fully recovered</text>
+<line x1="90" y1="493" x2="90" y2="509" stroke="#414a53" stroke-width="1.5"/>
+<text x="106" y="506" font-size="12" fill="#57606a">our record length</text>
+<line x1="227.3" y1="502" x2="241.3" y2="502" stroke="#0969da" stroke-width="2.5" stroke-dasharray="5 4"/>
+<text x="249.3" y="506" font-size="12" fill="#57606a">located edge</text>
 </svg>

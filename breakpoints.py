@@ -575,6 +575,56 @@ def _text_scatter(records: list, periods: list, signals: int, criterion: float) 
     return lines
 
 
+def _svg_legend(
+    parts: list,
+    left: float,
+    height: float,
+    colours: dict,
+    criterion: float,
+    signals: int,
+    edge_colour: str,
+    annotation: str,
+    muted: str,
+) -> None:
+    """Two rows underneath the plot: what a dot's colour means, then the two annotations.
+
+    The counts are spelled out rather than described as "half" and "above", so a reader does not
+    have to hold the criterion in their head: with 100 recordings per point and the 95% criterion
+    the rows read 95-100, 50-94 and 0-49 fully recovered.
+    """
+    at_criterion = round(criterion * signals)
+    half = signals // 2
+    rows = [
+        [
+            ("dot", colours["#"], f"{at_criterion}-{signals} of {signals} fully recovered"),
+            ("dot", colours["o"], f"{half}-{at_criterion - 1} of {signals} fully recovered"),
+            ("dot", colours["."], f"0-{half - 1} of {signals} fully recovered"),
+        ],
+        [
+            ("rule", annotation, "our record length"),
+            ("dash", edge_colour, "located edge"),
+        ],
+    ]
+    for row, entries in enumerate(rows):
+        y = height - 38 + row * 24
+        x = left
+        for kind, colour, label in entries:
+            if kind == "dot":
+                parts.append(f'<circle cx="{x + 5}" cy="{y - 4}" r="4.5" fill="{colour}"/>')
+            elif kind == "rule":
+                parts.append(
+                    f'<line x1="{x + 6}" y1="{y - 13}" x2="{x + 6}" y2="{y + 3}" '
+                    f'stroke="{colour}" stroke-width="1.5"/>'
+                )
+            else:
+                parts.append(
+                    f'<line x1="{x}" y1="{y - 4}" x2="{x + 14}" y2="{y - 4}" '
+                    f'stroke="{colour}" stroke-width="2.5" stroke-dasharray="5 4"/>'
+                )
+            parts.append(f'<text x="{x + 22}" y="{y}" font-size="12" fill="{muted}">{label}</text>')
+            x += 26 + 6.9 * len(label)
+
+
 def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -> str:
     """The same scatter as an SVG, so it can be looked at rather than read.
 
@@ -718,32 +768,7 @@ def _scatter_svg(records: list, periods: list, signals: int, criterion: float) -
         )
 
     # legend in a row underneath: nothing has to be read around the data
-    legend = [
-        ("dot", colours["#"], f"at least {round(criterion * signals)} of {signals} recover"),
-        ("dot", colours["o"], "half to that"),
-        ("dot", colours["."], "below half"),
-        ("rule", annotation, "our record length"),
-        ("dash", edge_colour, "located edge"),
-    ]
-    x = left
-    for kind, colour, label in legend:
-        y = height - 26
-        if kind == "dot":
-            parts.append(f'<circle cx="{x + 5}" cy="{y - 4}" r="4.5" fill="{colour}"/>')
-        elif kind == "rule":
-            parts.append(
-                f'<line x1="{x + 6}" y1="{y - 12}" x2="{x + 6}" y2="{y + 3}" stroke="{colour}" '
-                f'stroke-width="1.5"/>'
-            )
-        else:
-            parts.append(
-                f'<line x1="{x}" y1="{y - 4}" x2="{x + 14}" y2="{y - 4}" stroke="{colour}" '
-                f'stroke-width="2.5" stroke-dasharray="5 4"/>'
-            )
-        parts.append(
-            f'<text x="{x + 22}" y="{y}" font-size="12" fill="{muted}">{label}</text>'
-        )
-        x += 30 + 6.6 * len(label)
+    _svg_legend(parts, left, height, colours, criterion, signals, edge_colour, annotation, muted)
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
 

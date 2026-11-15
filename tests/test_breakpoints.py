@@ -229,6 +229,24 @@ def test_the_figure_draws_one_band_per_observation_and_marks_our_record_length()
     assert 'stroke-width="10"' not in svg, "the half-to-reliable bands are gone"
 
 
+def test_the_legend_spells_out_the_counts_instead_of_describing_them():
+    """`half to that` and `below half` made the reader hold the criterion in their head."""
+    good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98)], (50.0, 49.0))
+    svg = breakpoints._scatter_svg([good], [8], 100, 0.95)
+    assert "95-100 of 100 fully recovered" in svg
+    assert "50-94 of 100 fully recovered" in svg
+    assert "0-49 of 100 fully recovered" in svg
+    assert "half to that" not in svg
+
+
+def test_the_legend_counts_follow_the_signal_count():
+    good = a_record(60.0, 40.0, 50, [(50.0, 49, 0.98)], (50.0, 49.0))
+    svg = breakpoints._scatter_svg([good], [8], 50, 0.95)
+    assert "48-50 of 50 fully recovered" in svg
+    assert "25-47 of 50 fully recovered" in svg
+    assert "0-24 of 50 fully recovered" in svg
+
+
 def test_the_observation_bands_do_not_depend_on_the_x_axis():
     """The bands describe the supplied recordings, so they are drawn whatever durations are plotted."""
     good = a_record(60.0, 40.0, 100, [(50.0, 98, 0.98), (44.0, 20, 0.20)], (50.0, 49.0))
