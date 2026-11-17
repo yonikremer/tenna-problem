@@ -15,9 +15,9 @@ boundary(k) = ceil(phase_p) + k * samples_per_code_period
 ```
 
 with `phase_p` different for every satellite. Measured on `gnss_observation.nc`, the twelve code
-phases are 31.01, 109.02, 188.15, 274.02, 351.02, 437.90, 521.75, 603.88, 686.88, 770.89, 854.00 and
-945.88 chips — twelve different boundary sets, spaced 124.06, 436.08, 752.59 ... 3783.52 samples into
-the record.
+phases are 31.24, 109.24, 188.25, 274.25, 351.26, 438.00, 522.00, 604.00, 687.00, 771.00, 854.25 and
+946.01 chips — twelve different boundary sets, starting 125, 437, 753 ... 3784 samples into the
+record.
 
 ## The measurement that settles it
 

@@ -29,8 +29,10 @@ from . import rule as rule_module
 from .acquisition import Acquisition
 from .lattice import Lattice
 
-# Below this many PRNs the combining gain that makes a single chip decidable is not there: the
-# benchmark's PRN sweep recovers every flip from 6 PRNs at 52 dB-Hz and misses 7-13% at 2 and 4.
+# Below this many PRNs the combining gain that makes a single chip decidable is thin: the
+# benchmark's PRN sweep recovers every flip from 4 PRNs at 52 dB-Hz, 2 to 3 PRNs miss 7-13% of them,
+# and over 100 signals per point the pass rate first falls below 95% at 6 PRNs. So 6 is a margin, not
+# a cliff.
 MINIMUM_PRNS = 6
 
 

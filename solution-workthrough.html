@@ -189,28 +189,28 @@
 
 <div class="math">$$C[k] = \frac{1}{12}\sum_s v_s\big[(k - 2(s-1)) \bmod 1023\big]$$</div>
 
-<p>The flips add twelve times. Independent noise adds as $\sqrt{12}$. The gain is $10\log_{10}(12) = 10.8$ dB. The spread of a quiet chip falls from about 0.12 on one PRN to 0.038 on the average.</p>
+<p>The flips add twelve times. Independent noise adds as $\sqrt{12}$. The gain is $10\log_{10}(12) = 10.8$ dB. The spread of a quiet chip falls from about 0.145 on one PRN to 0.038 on the average.</p>
 
 <p>Sort $C$. The sign changes from minus to plus after exactly fifteen chips. The weakest of those fifteen is −0.199. The next chip, 631, is still positive at +0.151. The gap is about nine quiet-chip standard deviations.</p>
 
 <table>
 <tbody>
 <tr><th>Chip</th><th>Consensus</th><th>Quiet σ</th></tr>
-<tr><td class="num">34</td><td class="num">−0.274</td><td class="num">−14.5</td></tr>
-<tr><td class="num">411</td><td class="num">−0.296</td><td class="num">−15.1</td></tr>
-<tr><td class="num">644</td><td class="num">−0.293</td><td class="num">−15.0</td></tr>
-<tr><td class="num">788</td><td class="num">−0.260</td><td class="num">−14.1</td></tr>
-<tr><td class="num">877</td><td class="num">−0.259</td><td class="num">−14.1</td></tr>
-<tr><td class="num">932</td><td class="num">−0.215</td><td class="num">−13.0</td></tr>
-<tr><td class="num">966</td><td class="num">−0.243</td><td class="num">−13.7</td></tr>
-<tr><td class="num">987</td><td class="num">−0.273</td><td class="num">−14.5</td></tr>
-<tr><td class="num">1000</td><td class="num">−0.237</td><td class="num">−13.5</td></tr>
-<tr><td class="num">1008</td><td class="num">−0.199</td><td class="num">−12.5</td></tr>
-<tr><td class="num">1013</td><td class="num">−0.357</td><td class="num">−16.7</td></tr>
-<tr><td class="num">1016</td><td class="num">−0.233</td><td class="num">−13.4</td></tr>
-<tr><td class="num">1018</td><td class="num">−0.250</td><td class="num">−13.9</td></tr>
-<tr><td class="num">1019</td><td class="num">−0.292</td><td class="num">−15.0</td></tr>
-<tr><td class="num">1020</td><td class="num">−0.263</td><td class="num">−14.2</td></tr>
+<tr><td class="num">34</td><td class="num">−0.274</td><td class="num">−7.2</td></tr>
+<tr><td class="num">411</td><td class="num">−0.296</td><td class="num">−7.8</td></tr>
+<tr><td class="num">644</td><td class="num">−0.293</td><td class="num">−7.7</td></tr>
+<tr><td class="num">788</td><td class="num">−0.260</td><td class="num">−6.8</td></tr>
+<tr><td class="num">877</td><td class="num">−0.259</td><td class="num">−6.8</td></tr>
+<tr><td class="num">932</td><td class="num">−0.215</td><td class="num">−5.7</td></tr>
+<tr><td class="num">966</td><td class="num">−0.243</td><td class="num">−6.4</td></tr>
+<tr><td class="num">987</td><td class="num">−0.273</td><td class="num">−7.2</td></tr>
+<tr><td class="num">1000</td><td class="num">−0.237</td><td class="num">−6.2</td></tr>
+<tr><td class="num">1008</td><td class="num">−0.199</td><td class="num">−5.2</td></tr>
+<tr><td class="num">1013</td><td class="num">−0.357</td><td class="num">−9.4</td></tr>
+<tr><td class="num">1016</td><td class="num">−0.233</td><td class="num">−6.1</td></tr>
+<tr><td class="num">1018</td><td class="num">−0.250</td><td class="num">−6.5</td></tr>
+<tr><td class="num">1019</td><td class="num">−0.292</td><td class="num">−7.7</td></tr>
+<tr><td class="num">1020</td><td class="num">−0.263</td><td class="num">−6.9</td></tr>
 <tr><td class="num">631 (next)</td><td class="num">+0.151</td><td class="num">still positive</td></tr>
 </tbody>
 </table>
@@ -402,7 +402,7 @@
 <tbody>
 <tr><th>Axis</th><th>Still exact</th><th>Where it breaks</th></tr>
 <tr><td>C/N0</td><td>The 95% edge is 49.4 dB-Hz. At 55 dB-Hz, 100 of 100 trials return the exact 15. At 47.5, 83 of 100 do; a 1000-trial run with recording 2's Dopplers, which is a different set of draws, returned 839.</td><td>45 dB-Hz still finds all 12 PRNs. Only 26 of 100 then recover every chip. At 40, none do.</td></tr>
-<tr><td>Flipped chips</td><td>3 to about 240 of 1023. One run at 200 came back one chip short.</td><td>At 320 the shift search locks onto 343 or 684, about 1023/3 and 2 times 1023/3. At 400, 4 to 6 of 12 PRNs are detected. At 500, none are. A code flipped in K places keeps (1023 − 2K)/1023 of the nominal correlation. Acquisition then fades.</td></tr>
+<tr><td>Flipped chips</td><td>3 to 160 of 1023 recover exactly in both seeds. Over 100 signals per point the 95% edge is 140 chips; 166 drops to 78 of 100.</td><td>At 320 the shift search locks onto 343 or 684, about 1023/3 and 2 times 1023/3. At 400, 4 to 6 of 12 PRNs are detected. At 500, none are. A code flipped in K places keeps (1023 − 2K)/1023 of the nominal correlation. Acquisition then fades.</td></tr>
 <tr><td>How many PRNs</td><td>4 to 30 recover every chip in both seeds at 52 dB-Hz. The 95% edge is 7 PRNs; 6 gives 94 of 100.</td><td>1 PRN has nothing to shift against, so the slope is undefined. 2 to 3 miss chips. From 40 up, detection starts dropping PRNs: 78 of 80 at 80 PRNs, 197 to 202 of 210 at 210.</td></tr>
 <tr><td>Record length</td><td>4 ms in both seeds. Over 100 signals per point the 95% edge is 5 code periods; 4 ms gives 94 of 100.</td><td>2 ms loses chips. Two code periods are not enough to fit the phase slope and read the mask.</td></tr>
 <tr><td>Doppler</td><td>All 12 at 0 Hz, within ±2 Hz, within ±20 Hz. Out to ±5.5 kHz with the default span.</td><td>±5.8 kHz is outside the span, so it is invisible. Widen the span and ±6, ±10, ±15, ±20 and ±30 kHz come back exact. The limit is the search window.</td></tr>

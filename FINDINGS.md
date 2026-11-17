@@ -49,16 +49,17 @@ Three things follow, and they are the file's own statements rather than my infer
    phase, which must then be a whole number of samples. Measured: mean distance to a whole sample is
    **0.049** now, and was **0.247** before the sub-sample refinement was fixed — the fix moved the
    estimates onto the grid the file declares, without being told to. Recording 2 makes no such claim,
-   and its own fit is noisier (0.093), which is consistent with it being 8.5 dB weaker.
+   and its own fit is noisier (0.093), which is consistent with it being 8 dB weaker.
 2. **Recording 1 declares 15 flips per PRN.** That corroborates the recovered count independently of
    the estimator, and it is why `987` is reported as unsupported rather than absent: recording 1's own
    `description` says every PRN carries fifteen. Recording 2 declares no flip count.
 3. **The declared model is matched, not fitted.** Declared amplitude 0.2780; measured with the other
-   satellites removed it is **0.2784**, a ratio of 1.001. (Projecting one satellite against the
-   *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not perfectly
-   orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0; the seeded
-   noise also measures 1.0, and the 0.054 left over by a nominal-code model is the 180 flipped chips,
-   not noise, on this noise-free reconstruction. On the shipped noisy recording the same model leaves
+   satellites removed it is **0.2774 to 0.2780**, a mean ratio of 0.999. (Projecting one satellite
+   against the *uncleaned* composite reads 0.267, 4% low, because the other eleven codes are not
+   perfectly orthogonal — that is a measurement bias, not a model error.) Declared noise power 1.0;
+   the seeded noise also measures 1.0, and the 0.054 left over by a nominal-code model is the 180
+   flipped chips, not noise, on this noise-free reconstruction. On the shipped noisy recording the
+   same model leaves
    `residual_gain_db` 0.218 dB (recording 1) and 0.035 dB (recording 2), which is why the residual
    check alone cannot see the flips in recording 2 — see "Double-checking the answer against the
    file's own seed" below.
@@ -572,13 +573,15 @@ Single-satellite chip repair is not reliable at 55 dB-Hz. The common rule is wha
 .venv/Scripts/python.exe -m pytest      # create the venv first: see README, Setup
 ```
 
-Current result:
+Current result is whatever the run prints; the gate is in the config, not in this file:
 
 ```text
-181 passed
-Total coverage 95.4% of gnss/
-Required minimum 90% (pytest.ini)
+.venv/Scripts/python.exe -m pytest      # counts and coverage are in the output
 ```
+
+`pytest.ini` requires 90% coverage of `gnss/`. The count includes one GPU test that skips when no
+CUDA device is present, so the coverage number on a machine without a GPU is lower than the one on a
+machine with one.
 
 Every module of `gnss/` is exercised end to end by `tests/test_pipeline.py` on the 55 dB-Hz
 synthetic recording, and unit by unit by the rest. The `analysis/` scripts keep their own tests but
@@ -593,7 +596,7 @@ chain on each, and scores it. Tables are in `BENCHMARK.md`; the limits are:
 | --- | --- |
 | C/N0 per PRN | exact in both seeds down to 51 dB-Hz (at 49 and 47 one seed carried one extra chip: precision 0.94, recall 1.00); 95% edge 49.4 dB-Hz over 100 independent signals per point; at 45 dB-Hz 26 of 100 runs recover every chip |
 | flipped chips per PRN | exact in both seeds to 160; 95% edge 140 chips; the shift search fails at 320; at 400 only 4-6 of 12 PRNs are detected; at 500 none |
-| PRNs at 52 dB-Hz | exact in both seeds from 4 to 30; 95% edge at 7 PRNs; exact recovery stops at 36 PRNs (32 of 100 then 0 of 100); 1 PRN cannot define a shift, 2-3 miss 1-3 chips |
+| PRNs at 52 dB-Hz | exact in both seeds from 4 to 30; 95% edge at 7 PRNs; the 100-signal rate is already 0 of 100 at 36 PRNs (100 of 100 at 32); 1 PRN cannot define a shift, 2-3 miss 1-3 chips |
 | record length | exact in both seeds from 4 ms; 95% edge 5 code periods (4 ms gives 94 of 100); at 2 ms one chip is lost at most, but the Doppler fit degrades |
 | shift per PRN | exact for 0, 1, 2, 3, 7, 25 chips |
 | fractional code phase | flips exact, but residual power rises to 1.14x noise at a half-sample chip offset |

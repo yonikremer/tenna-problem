@@ -7,11 +7,11 @@ For each detected satellite:
 1. Sharpened Doppler from the phase slope across code periods (uncertainty 1.4-2 Hz in observation 1).
 2. Wipe the carrier, then wipe that satellite's NOMINAL spreading code, leaving `+amplitude` where the
    received chip matches the nominal code and `-amplitude` where it was modified.
-3. Average the 8 occurrences of each chip coherently, sampling the chip centre (the two middle of the
-   four samples per chip). Whole-chip averaging is also computed and agrees.
+3. Average the 8 occurrences of each chip coherently, sampling each chip's midpoint relative to the
+   measured code phase (not fixed record slots). Whole-chip averaging is also computed and agrees.
 4. Rotate out the residual phase, then take the sign.
-5. Relabel from record position to code coordinate: position `m` inside a period holds code chip
-   `(m - phase/4) mod 1023`, because the replica starts at that satellite's own code phase.
+5. The chip index follows from the measured code phase, so the vector is already in the satellite's
+   own code coordinates: no relabelling roll is applied.
 
 Output: `gnss_observation_chips.csv` and `gnss_observation2_chips.csv`, 12 satellites x 1023 chips.
 

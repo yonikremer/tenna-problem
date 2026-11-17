@@ -55,7 +55,8 @@ gain. The 15 consensus chips are then separated from the rest by a wide margin.
 1. Cancels the other satellites with their nominal codes.
 2. Extracts one soft value per chip for each PRN.
 3. Searches the single common slope that makes the aligned sum sharpest.
-4. Takes the 15 most negative consensus chips as the base pattern.
+4. Chooses how many consensus chips to keep by held-out gain (below), then takes that many most
+   negative ones as the base pattern.
 5. Maps the base back to every PRN with `flip = base - 2*(PRN - 1)`. For these PRNs the result does not wrap, so each PRN still has 15 flips.
 
 Result on `synthetic_shared_55.nc` (55.0 dB-Hz, noise 1.0): **exact 15/15 flips for all 12 PRNs**,
@@ -64,8 +65,8 @@ script on the real recordings returns the same slope 2 and the same base pattern
 
 | recording | score | residual with nominal codes | residual with recovered codes |
 | --- | --- | --- | --- |
-| `data/gnss_observation.nc` | 2.99 | 1.0421 | 0.9911 |
-| `data/gnss_observation2.nc` | 2.00 | 1.0052 | 0.9970 |
+| `data/gnss_observation.nc` | 3.48 | 1.0421 | 0.9911 |
+| `data/gnss_observation2.nc` | 2.33 | 1.0052 | 0.9970 |
 
 The earlier note in `docs/notes_chip_extraction.md` that the positions are not shared was measured
 with the buggy chip labels described below. With correct labels and the 2-chip alignment, the common
@@ -78,11 +79,6 @@ structure is strong and unambiguous.
 ```
 
 `pytest.ini` enables coverage on every run and fails below 90%:
-
-```text
-TOTAL                    974     45    95%
-181 passed
-```
 
 `gnss/` is covered module by module; `analysis/` scripts keep their own tests but are not part of
 the coverage requirement, because they are evidence rather than the shipped path.
@@ -265,10 +261,10 @@ Code: `tests/global_flip.py` (`prepare`, `score_changes`, `brute_force_change`).
    +0.26 dB). Random 15-chip masks gave **-0.23 to -0.27 dB**.
 
 `data/gnss_observation2.nc` recovers the same slope, 2 chips per PRN, and keeps 14 of the 15 rule
-positions. Its signals are 7 dB weaker, so the weakest position, base chip 987, falls under the
+positions. Its signals are 8 dB weaker, so the weakest position, base chip 987, falls under the
 count's cutoff; the recording is a sensitivity limit, not a different pattern.
 
-## Second recording: 14 strong flips, 987 weak but kept with a warning
+## Second recording: 14 strong flips, 987 dropped but named
 
 The same seven-step process on `data/gnss_observation2.nc` gives the same slope 2, but the fixed-15
 consensus has a hole. At the 15 base positions of `data/gnss_observation.nc`:
@@ -279,9 +275,10 @@ consensus has a hole. At the 15 base positions of `data/gnss_observation.nc`:
 | 1008 | -0.92 sigma | 9/12 |
 | all other 13 | -1.38 to -3.69 sigma | 7/12 to 12/12 |
 
-So 987 is present but weak: it reads a third of a full flip, six of twelve satellites put it below
-zero, and the count search drops it. It is still part of the 15-position rule and is emitted with a
-warning, not deleted. 1008 is the other uncertain one, and it survives the count.
+So 987 is present but weak: it reads a third of a full flip and six of twelve satellites put it
+below zero, so the count search drops it. 1008 is the other uncertain one, and it survives the
+count. Neither is a second rule: the dropped position stays in the rule, and the JSON records it
+under `pattern.positions_missing_here`.
 
 The count is chosen without assuming a value. Search every `K` from 1 upward, and for each `K`
 derive the base from 11 satellites, apply it to the left-out satellite, and measure correlation gain.
@@ -289,7 +286,7 @@ Average over all 12 left-out choices. The maximum is the data-driven count.
 
 | recording | best K | mean held-out gain at best K |
 | --- | --- | --- |
-| `data/gnss_observation.nc` | **15** | +0.249 dB |
+| `data/gnss_observation.nc` | **15** | +0.244 dB |
 | `data/gnss_observation2.nc` | **14** | +0.235 dB |
 
 The earlier list `5,10,12,15,...` was only a diagnostic sweep; the choice below does not depend on it.
@@ -298,21 +295,18 @@ For the second file, the nearby values are:
 
 | assumed flips | mean held-out gain |
 | --- | --- |
-| 13 (without 1008) | +0.239 dB |
-| **14 (with 1008, without 987)** | **+0.246 dB** |
-| 15 (with 987 and 1008) | +0.223 dB |
+| 13 (without 1008) | +0.225 dB |
+| **14 (with 1008, without 987)** | **+0.235 dB** |
+| 15 (with 987 and 1008) | +0.226 dB |
 
-Adding 1008 improves 9 of 12 held-out satellites; adding 987 degrades all 12. The data-driven count
+Adding 1008 raises the held-out gain; adding 987 lowers it. The data-driven count
 is **14**. The base with measurable support is the 15-position Fibonacci set without 987:
 
 `[34, 411, 644, 788, 877, 932, 966, 1000, 1008, 1013, 1016, 1018, 1019, 1020]`
 
-The rule itself keeps all 15; `joint_flips.main` prints:
-
-`warning: weak evidence for base chips 987 (consensus is not negative in this recording)`
-
 Per PRN: `flip = base - 2*(PRN-1)`. The subtraction does not wrap.
 
-The count is not certain: 1008 is only about 3 sigma from both models, so 13 is possible. 987 is kept
-because the pattern is 15 positions, but it carries a warning: this recording does not independently
-support it. Hiding the mismatch or silently dropping the chip are both worse than keeping it flagged.
+The count is not certain: 1008 is only about 3 sigma from both models, so 13 is possible. 987 stays
+in the rule but not in this recording's flip table: the JSON records it in
+`pattern.positions_missing_here`, and 987 is the position the rule expects that this file cannot
+confirm. Hiding the mismatch or silently emitting the chip are both worse than stating the split.

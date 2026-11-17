@@ -9,7 +9,7 @@ modified chips out of the noise, recovers the rule, and proves the rule explains
 
 Two ways to read the solution, both self-contained:
 
-- **[The walkthrough](solution-workthrough.html)**: one page, six steps, from the raw samples
+- **[The walkthrough](solution-workthrough.html)**: one page, nine sections, from the raw samples
   to the rule, with the measured numbers and the two figures. Open it in a browser.
 - **[The same page as a PDF](solution-workthrough.pdf)**: light theme, 12 pages, for reading
   or printing offline.
@@ -101,7 +101,7 @@ search, the rule, and the evidence. It writes six files next to each recording, 
 | `data/<name>_solution.json` | the whole answer, including every PRN's 1023-chip original and transmitted code with its modified indexes, and the closed form per PRN |
 | `data/<name>_modified_positions.csv` | one row per modified chip: PRN and chip index |
 | `data/<name>_transmitted_codes.csv` | one row per PRN: chip count, modified indexes, and both 1023-chip codes space separated |
-| `data/<name>_transmitted_codes.npz` | the same codes as two `(PRNs, chips)` arrays |
+| `data/<name>_transmitted_codes.npz` | the same codes as two `(PRNs, chips)` arrays, plus the PRN numbers |
 
 Exit status is 0 when the recovered base is a subset of the Fibonacci rule, 1 when a recording
 supports a position the rule cannot produce. The default satellite search is `1-210`, which removes a
@@ -148,7 +148,7 @@ and limits: `FINDINGS.md`, "Double-checking the answer against the file's own se
 | `gnss/tables.py` | CSV, JSON and array artifacts, including the 12 x 1023 transmitted codes |
 | `gnss/vendor.py` | locates the vendored third-party code generator |
 | `analysis/` | exploratory scripts that measure one thing each (see `analysis/__init__.py`) |
-| `tests/` | 181 tests, synthetic generators with known truth, 95% coverage of `gnss/` |
+| `tests/` | the test suite and its synthetic generators with known truth |
 | `vendor/` | third-party MIT code (Peter Monta, GNSS-DSP-tools): the C/A code tables come from here |
 | `docs/` | working notes written while solving |
 
@@ -183,7 +183,7 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | C/N0 per PRN | exact in both seeds down to **51 dB-Hz**; 95% edge **49.4 dB-Hz** over 100 signals per point; at 45 dB-Hz 26 of 100 runs recover every chip |
 | flipped chips per PRN | exact in both seeds to **160** of 1023; 95% edge **140 chips** over 100 signals; the shift search fails at 320, detection at 400, nothing at 500 |
 | PRNs at 52 dB-Hz | exact in both seeds from **4 to 30**; 95% edge at **7 PRNs** (6 gives 94 of 100); 1 PRN cannot define a shift at all, 2–3 miss a chip, and from 40 up a few PRNs stop being *detected* (78/80 at 80 PRNs, 197–202/210 at 210) |
-| record length | exact in both seeds from **4 ms**; 95% edge **5 code periods** (4 ms gives 94 of 100); 2 ms loses 13-40% of the flips |
+| record length | exact in both seeds from **4 ms**; 95% edge **5 code periods** (4 ms gives 94 of 100); at 2 ms one chip comes or goes, and the Doppler fit degrades |
 | shift per PRN | exact for **0, 1, 2, 3, 7, 25** chips |
 | fractional code phase | flips exact at 0.25/0.5/0.75 sample offsets; residual power rises to 1.14x noise |
 | data bit flipping mid-record | exact; worst Doppler error 3.7 Hz |
@@ -192,7 +192,7 @@ and the no-shared-rule cases — and scores every run against truth. Full tables
 | Doppler far from zero | found to about **±5.5 kHz** with the default span; nothing at ±5.8 kHz — but raising `--max-speed-km-h` recovers **±6, ±10, ±15, ±20 and ±30 kHz exactly**, at the cost of search time and a slightly higher detection threshold |
 | no shared rule / no modification | reports **0 chips at 0.000 dB** — no rule invented |
 
-The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Below 6 detected PRNs `solve.py` prints a warning: the combining gain is not there, and the benchmark shows 2-4 PRNs leave 7-13% of the chips missing.
+The assignment's own case (12 PRNs, 55 dB-Hz, 15 chips) passes with margin. Below 6 detected PRNs `solve.py` prints a warning: the combining gain is not there, and the benchmark shows 2-3 PRNs leave 7-13% of the chips missing.
 
 `benchmark.py` uses two noise seeds per grid point, which can only report 0/2, 1/2 or 2/2. To turn
 those edges into a rate, `python breakpoints.py` runs **100 independent recordings per probe** and

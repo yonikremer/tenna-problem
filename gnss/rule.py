@@ -177,10 +177,10 @@ def score_slope(vectors: dict, slope: int, flip_count: int = FLIP_COUNT) -> floa
     """How sharp the `flip_count` negative chips are after alignment; larger is better.
 
     shortcut: this is an extreme-value statistic, so a wrong shift that happens to stack flip signs
-    can outrank the true one once a large fraction of the chips are negative. Measured onset: 3 of 4
-    runs still exact at 240 flipped chips of 1023, none of 4 at 244, and the wrong answer is 343 or
-    684 - about 1023/3 and 2*1023/3, where the PRN rolls coincide and a dense random mask's own
-    autocorrelation competes with the true shift of 2. Upgrade to ranking shifts by held-out gain
+    can outrank the true one once a large fraction of the chips are negative. Measured onset: 1 of 6
+    runs still exact at 240 flipped chips of 1023, none of 6 at 236 or 244, and the wrong answer is
+    343 or 684 - about 1023/3 and 2*1023/3, where the PRN rolls coincide and a dense random mask's
+    own autocorrelation competes with the true shift of 2. Upgrade to ranking shifts by held-out gain
     (`count_scores`) if dense modifications ever matter; see BENCHMARK.md.
     """
     consensus = align_and_sum(vectors, slope)
@@ -300,8 +300,10 @@ class Rule:
     def cutoff(self) -> tuple:
         """Consensus of the weakest accepted chip and the strongest rejected one, in sigmas.
 
-        The gap between the two is what justifies the chosen count: a real flip sits clearly below
-        zero, a chip that was not flipped sits at or above it.
+        The gap between the two is what justifies the chosen count, but the two are not separated by
+        zero: on the second recording the strongest rejected chip is itself negative, because it is a
+        real flip whose evidence is weaker than the ones that were accepted. The boundary is a gap in
+        the ranking, not a sign change.
         """
         ordered = np.sort(self.consensus)
         scale = float(np.std(self.consensus)) or 1.0
