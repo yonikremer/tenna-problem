@@ -11,8 +11,9 @@ Two ways to read the solution, both self-contained:
 
 - **[The walkthrough](solution-workthrough.html)**: one page, nine sections, from the raw samples
   to the rule, with the measured numbers and the two figures. Open it in a browser.
-- **[The same page as a PDF](solution-workthrough.pdf)**: light theme, 12 pages, for reading
-  or printing offline.
+- **[The same page as a PDF](solution-workthrough.pdf)**: the light theme on A4, for reading
+  or printing offline. Regenerate it with `python print_workthrough.py` (see that file for the two
+  `pip`/`playwright` setup lines), which prints the page's own print stylesheet.
 
 The short version is below; the evidence is in [`FINDINGS.md`](FINDINGS.md) and the limits in
 [`BENCHMARK.md`](BENCHMARK.md). The walkthrough is the answer to "how did you get there": every step
@@ -135,6 +136,7 @@ and limits: `FINDINGS.md`, "Double-checking the answer against the file's own se
 | path | role |
 | --- | --- |
 | `solution-workthrough.html` | the walkthrough, step by step, with the arithmetic and the measured numbers |
+| `print_workthrough.py` | reprints `solution-workthrough.pdf` from that page, light sheet on A4 |
 | `solve.py` | the whole solution in one command: acquisition → cancellation → chip readout → shift → rule → evidence → files |
 | `data/` | the recordings, plus every artifact made from them (`data/tests/`, `data/benchmark/` are generated) |
 | `gnss/lattice.py` | sampling grid derived from the recording's own metadata |
