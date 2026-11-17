@@ -1,11 +1,14 @@
-"""Print solution-workthrough.html to solution-workthrough.pdf, same shape as the shipped copy.
+"""Print solution-workthrough.html to solution-workthrough.pdf, light sheet on A4.
 
-The shipped PDF was made by Firefox's print dialog: A4, light sheet, no headers. This reproduces it
-with Playwright so the file can be regenerated without a desktop browser.
+Uses the page's own print stylesheet, so the printed copy is always the light sheet whatever theme
+is on screen. Needs Playwright and its Chromium build:
 
-    .venv/Scripts/python.exe print_workthrough.py [browser]
+    .venv/Scripts/python.exe -m pip install playwright
+    .venv/Scripts/python.exe -m playwright install chromium
 
-`browser` is `firefox` (default) or `chromium`.
+    .venv/Scripts/python.exe print_workthrough.py [output.pdf]
+
+Firefox is not an option: Playwright's Firefox build cannot produce a PDF.
 """
 
 import pathlib
@@ -17,17 +20,17 @@ PAGE = pathlib.Path("solution-workthrough.html").resolve()
 OUTPUT = pathlib.Path("solution-workthrough.pdf").resolve()
 
 
-def main(browser_name: str = "firefox") -> None:
+def main(output: pathlib.Path = OUTPUT) -> None:
     with sync_playwright() as play:
-        browser = getattr(play, browser_name).launch()
+        browser = play.chromium.launch()
         page = browser.new_page()
         page.goto(PAGE.as_uri(), wait_until="load")
         page.evaluate("document.fonts.ready")
         page.emulate_media(media="print")
-        page.pdf(path=str(OUTPUT), format="A4", print_background=True)
+        page.pdf(path=str(output), format="A4", print_background=True)
         browser.close()
-    print(f"{OUTPUT} ({OUTPUT.stat().st_size} bytes)")
+    print(f"{output} ({output.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "firefox")
+    main(pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else OUTPUT)
