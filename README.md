@@ -136,6 +136,7 @@ and limits: `FINDINGS.md`, "Double-checking the answer against the file's own se
 | path | role |
 | --- | --- |
 | `solution-workthrough.html` | the walkthrough, step by step, with the arithmetic and the measured numbers |
+| `didnt_work.md` | methods that failed, with the measurement that failed them |
 | `print_workthrough.py` | reprints `solution-workthrough.pdf` from that page, light sheet on A4 |
 | `solve.py` | the whole solution in one command: acquisition → cancellation → chip readout → shift → rule → evidence → files |
 | `data/` | the recordings, plus every artifact made from them (`data/tests/`, `data/benchmark/` are generated) |

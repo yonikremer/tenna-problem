@@ -8,6 +8,7 @@ question that the main report summarises, and each prints its measurement rather
   interference_cancellation  what removing the other PRNs actually buys, measured on chip spread
   greedy_flip                the analytic per-chip flip score, verified against a direct correlation
   joint_flip                 benchmarks of a shared mask against independent per-PRN flips
+  pairwise_offsets           per-pair circular cross-correlation, and why it could not recover the rule
   code_phase_accuracy        bias and spread of the code-phase estimator against injected truth
   segment_identity           are the code periods copies, and how far from identical
   acquire_nc                 acquisition with the vendored Peter Monta kernel, as a cross-check
